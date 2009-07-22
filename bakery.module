@@ -1,0 +1,171 @@
+<?php
+
+/**
+ * Implementation of hook_menu().
+ */
+function bakery_menu() {
+  $items = array();
+  
+  $items['admin/settings/bakery'] = array(
+    'title' => 'Bakery',
+    'access arguments' => array('administer bakery'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('bakery_settings'),
+    'description' => t('Infrastructure-wide single-sign-on system options.'),
+  );
+  
+  return $items;
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function bakery_perm() {
+  return array('administer bakery');
+}
+
+function bakery_settings() {
+  $form = array();
+  
+  $form['bakery_freshness'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Seconds of age before a cookie is old',
+    '#default_value' => variable_get('bakery_freshness', '3600'),
+  );
+  
+  $form['bakery_allow_local'] = array(
+    '#type' => 'checkbox',
+    '#title' => 'Allow local sign-ons and account management',
+    '#default_value' => variable_get('bakery_allow_local', 1),
+  );
+
+  $form['bakery_key'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Private key for cookie validation',
+    '#default_value' => variable_get('bakery_key', ''),
+  );
+
+  $form['bakery_domain'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Cookie domain',
+    '#default_value' => variable_get('bakery_domain', ''),
+  );
+  
+  return system_settings_form($form);
+}
+
+function _bakery_taste_cookie() {
+  $key = variable_get('bakery_key', '');
+
+  watchdog('bakery', 'Cookies:<pre>' . print_r($_COOKIE, TRUE) . '</pre>');
+
+  if (!$key || !variable_get('bakery_domain', '')) {
+    return;
+  }
+  
+  global $user;
+
+  $cookie = unserialize($_COOKIE['CHOCOLATECHIP']);
+  $signature = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
+
+  $valid = FALSE;
+
+  if ($signature == $cookie['signature']) {
+    watchdog('bakery', 'Signature check passes.');
+  }
+
+  if ($cookie['timestamp'] + variable_get('bakery_freshness', '3600') >= $_SERVER['REQUEST_TIME']) {
+    watchdog('bakery', 'Freshness check passes.');
+  }
+
+  if ($signature == $cookie['signature'] && $cookie['timestamp'] + variable_get('bakery_freshness', '3600') >= $_SERVER['REQUEST_TIME']) {
+    $valid = TRUE;
+  }
+  
+  if ($valid) {
+    watchdog('bakery', 'This is a valid cookie.');
+  
+    // Bake a fresh cookie. Yum.
+    _bakery_bake_cookie($cookie['name'], $cookie['mail']);
+
+    if ($user->name != $cookie['name']) {
+      $account = user_load(array('name' => $cookie['name']));
+      
+      // Create the account if it doesn't exist.
+      if (!$account) {
+        $new = array(
+          'name' => $cookie['name'],
+          'mail' => $cookie['mail'],
+        );
+        $account = user_save(new stdClass(), $new);
+        $account = user_load($account->uid);
+      }
+
+      $user = $account;
+    }
+
+    return TRUE;
+  }
+  
+  if (!$valid) {
+    watchdog('bakery', 'Eating the bad cookie.');
+  
+    // Eat the bad cookie. Burp.
+    _bakery_eat_cookie();
+    
+    if ($user->uid > 0) {
+      watchdog('bakery', 'Logging out the user with the bad cookie.');
+      require_once drupal_get_path('module', 'user') . '/user.pages.inc';
+      user_logout();
+    }
+  }
+  
+  return FALSE;
+}
+
+function _bakery_bake_cookie($name, $mail) {
+  $key = variable_get('bakery_key', '');
+  if (!empty($key)) {
+    $cookie = array();
+    $cookie['name'] = $name;
+    $cookie['mail'] = $mail;
+    $cookie['calories'] = 480;
+    $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
+    $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
+    setcookie('CHOCOLATECHIP', serialize($cookie), $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), NULL, variable_get('bakery_domain', ''));
+    //setcookie('CHOCOLATECHIP', serialize($cookie), $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'));
+    watchdog('bakery', 'Set single-sign-on cookie.');
+  }
+}
+
+function _bakery_eat_cookie() {
+  setcookie('CHOCOLATECHIP', '', $_SERVER['REQUEST_TIME'] - 3600);
+  setcookie('CHOCOLATECHIP', '', $_SERVER['REQUEST_TIME'] - 3600, NULL, variable_get('bakery_domain', ''));  
+}
+
+/**
+ * Implementation of hook_user().
+ */
+function bakery_user($op, &$edit, &$account, $category = NULL) {
+  if ($op == 'login') {
+    _bakery_bake_cookie($account->name, $account->mail);
+  }
+  else if ($op == 'logout') {
+    _bakery_eat_cookie();
+  }
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function bakery_init() {
+  _bakery_taste_cookie();
+}
+
+// Hide username and password options. 
+function bakery_form_alter(&$form, $form_state, $form_id) {
+  if (!variable_get('bakery_allow_local', 1) && !user_access('administer bakery')) {
+    $form['account']['name']['#type'] = 'hidden';
+    $form['account']['pass']['#type'] = 'hidden';
+  }
+}
