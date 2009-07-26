@@ -65,7 +65,7 @@ function _bakery_taste_cookie() {
 
   watchdog('bakery', 'Cookies:<pre>' . print_r($_COOKIE, TRUE) . '</pre>');
 
-  if (!$key || !variable_get('bakery_domain', '')) {
+  if (!isset($_COOKIE['CHOCOLATECHIP']) || !$key || !variable_get('bakery_domain', '')) {
     return;
   }
   
