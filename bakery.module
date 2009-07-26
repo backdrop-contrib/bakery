@@ -39,6 +39,12 @@ function bakery_settings() {
     '#default_value' => variable_get('bakery_allow_local', 1),
   );
 
+  $form['bakery_allow_account'] = array(
+    '#type' => 'checkbox',
+    '#title' => 'Allow local account automatic creation',
+    '#default_value' => variable_get('bakery_allow_account', 0),
+  );
+
   $form['bakery_key'] = array(
     '#type' => 'textfield',
     '#title' => 'Private key for cookie validation',
@@ -92,16 +98,16 @@ function _bakery_taste_cookie() {
       $account = user_load(array('name' => $cookie['name']));
       
       // Create the account if it doesn't exist.
-      if (!$account) {
+      if (!$account && variable_get('bakery_allow_account', 0)) {
         $new = array(
           'name' => $cookie['name'],
           'mail' => $cookie['mail'],
         );
         $account = user_save(new stdClass(), $new);
         $account = user_load($account->uid);
-      }
 
-      $user = $account;
+        $user = $account;
+      }
     }
 
     return TRUE;
