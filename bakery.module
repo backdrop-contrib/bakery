@@ -106,7 +106,10 @@ function _bakery_taste_cookie() {
         $account = user_save(new stdClass(), $new);
         $account = user_load($account->uid);
 
-        $user = $account;
+      }
+
+      if ($account) {
+        user_external_login($account);
       }
     }
 
