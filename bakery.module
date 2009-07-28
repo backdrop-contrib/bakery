@@ -101,7 +101,7 @@ function _bakery_taste_cookie() {
     watchdog('bakery', 'This is a valid cookie.');
   
     // Bake a fresh cookie. Yum.
-    _bakery_bake_cookie($cookie['name'], $cookie['mail']);
+    _bakery_bake_cookie($cookie['name'], $cookie['mail'], $cookie['init']);
 
     if ($user->name != $cookie['name']) {
       $account = user_load(array('name' => $cookie['name']));
@@ -111,6 +111,7 @@ function _bakery_taste_cookie() {
         $new = array(
           'name' => $cookie['name'],
           'mail' => $cookie['mail'],
+          'init' => $cookie['init'],
         );
         $account = user_save(new stdClass(), $new);
         $account = user_load($account->uid);
@@ -141,12 +142,13 @@ function _bakery_taste_cookie() {
   return FALSE;
 }
 
-function _bakery_bake_cookie($name, $mail) {
+function _bakery_bake_cookie($name, $mail, $init) {
   $key = variable_get('bakery_key', '');
   if (!empty($key)) {
     $cookie = array();
     $cookie['name'] = $name;
     $cookie['mail'] = $mail;
+    $cookie['init'] = $init;
     $cookie['calories'] = 480;
     $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
     $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
@@ -166,7 +168,7 @@ function _bakery_eat_cookie() {
  */
 function bakery_user($op, &$edit, &$account, $category = NULL) {
   if ($op == 'login') {
-    _bakery_bake_cookie($account->name, $account->mail);
+    _bakery_bake_cookie($account->name, $account->mail, url("user/$user->uid/edit", array('absolute' => TRUE)));
   }
   else if ($op == 'logout') {
     _bakery_eat_cookie();
@@ -183,7 +185,7 @@ function bakery_init() {
 // Hide username and password options. 
 function bakery_form_alter(&$form, $form_state, $form_id) {
   if (!variable_get('bakery_allow_local', 1) && !user_access('administer bakery')) {
-    $form['account']['name']['#type'] = 'hidden';
-    $form['account']['pass']['#type'] = 'hidden';
+    $form['account']['name']['#access'] = FALSE;
+    $form['account']['pass']['#access'] = FALSE;
   }
 }
