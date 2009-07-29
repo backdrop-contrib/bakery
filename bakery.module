@@ -16,7 +16,7 @@ function bakery_menu() {
   $items['bakery'] = array(
     'title' => 'Login',
     'access callback' => 'user_is_anonymous',
-    'page callback' => 'bakery_redirect',
+    'page callback' => 'bakery_bake_oatmeal_cookie',
     'options' => array('alter' => TRUE),
   );
    
@@ -33,10 +33,10 @@ function bakery_perm() {
 function bakery_translated_menu_link_alter(&$item) {
   if ($item['href'] == 'bakery') {
     $item['localized_options']['query'] = drupal_get_destination();
-  } 
+  }
 }
 
-function bakery_redirect() {
+function bakery_bake_oatmeal_cookie() {
   setcookie('OATMEAL', $_REQUEST['destination'], $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), NULL, variable_get('bakery_domain', ''));
   unset($_REQUEST['destination']);
   drupal_goto(trim(variable_get('bakery_master', 'http://drupal.org/'), '/') .'/user/login');
@@ -119,7 +119,7 @@ function _bakery_taste_cookie() {
     watchdog('bakery', 'This is a valid cookie.');
   
     // Bake a fresh cookie. Yum.
-    _bakery_bake_cookie($cookie['name'], $cookie['mail'], $cookie['init']);
+    _bakery_bake_chocolatechip_cookie($cookie['name'], $cookie['mail'], $cookie['init']);
 
     if ($user->name != $cookie['name']) {
       $account = user_load(array('name' => $cookie['name']));
@@ -148,7 +148,7 @@ function _bakery_taste_cookie() {
     watchdog('bakery', 'Eating the bad cookie.');
   
     // Eat the bad cookie. Burp.
-    _bakery_eat_cookie();
+    _bakery_eat_chocolatechip_cookie();
     
     if ($user->uid > 0) {
       watchdog('bakery', 'Logging out the user with the bad cookie.');
@@ -160,7 +160,7 @@ function _bakery_taste_cookie() {
   return FALSE;
 }
 
-function _bakery_bake_cookie($name, $mail, $init) {
+function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
   $key = variable_get('bakery_key', '');
   if (!empty($key)) {
     $cookie = array();
@@ -176,7 +176,7 @@ function _bakery_bake_cookie($name, $mail, $init) {
   }
 }
 
-function _bakery_eat_cookie() {
+function _bakery_eat_chocolatechip_cookie() {
   setcookie('CHOCOLATECHIP', '', $_SERVER['REQUEST_TIME'] - 3600);
   setcookie('CHOCOLATECHIP', '', $_SERVER['REQUEST_TIME'] - 3600, NULL, variable_get('bakery_domain', ''));  
 }
@@ -186,10 +186,10 @@ function _bakery_eat_cookie() {
  */
 function bakery_user($op, &$edit, &$account, $category = NULL) {
   if ($op == 'login') {
-    _bakery_bake_cookie($account->name, $account->mail, url("user/$user->uid/edit", array('absolute' => TRUE)));
+    _bakery_bake_chocolatechip_cookie($account->name, $account->mail, url("user/$user->uid/edit", array('absolute' => TRUE)));
   }
   else if ($op == 'logout') {
-    _bakery_eat_cookie();
+    _bakery_eat_chocolatechip_cookie();
   }
 }
 
