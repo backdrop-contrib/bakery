@@ -11,9 +11,15 @@ function bakery_menu() {
     'access arguments' => array('administer bakery'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('bakery_settings'),
-    'description' => t('Infrastructure-wide single-sign-on system options.'),
+    'description' => 'Infrastructure-wide single-sign-on system options.',
   );
-  
+  $items['bakery'] = array(
+    'title' => 'Login',
+    'access callback' => 'user_is_anonymous',
+    'page callback' => 'bakery_redirect',
+    'options' => array('alter' => TRUE),
+  );
+   
   return $items;
 }
 
@@ -22,6 +28,18 @@ function bakery_menu() {
  */
 function bakery_perm() {
   return array('administer bakery');
+}
+
+function bakery_translated_menu_link_alter(&$item) {
+  if ($item['href'] = 'bakery') {
+    $item['localized_options']['query'] = drupal_get_destination();
+  } 
+}
+
+function bakery_redirect() {
+  setcookie('OATMEAL', $_REQUEST['destination'], $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), NULL, variable_get('bakery_domain', ''));
+  unset($_REQUEST['destination']);
+  drupal_goto(trim(variable_get('bakery_master', 'http://drupal.org/'), '/') .'/user/login');
 }
 
 function bakery_settings() {
@@ -37,7 +55,7 @@ function bakery_settings() {
   $form['bakery_master'] = array(
     '#type' => 'textfield',
     '#title' => 'Master site',
-    '#default_value' => variable_get('bakery_master', 'drupal.org'),
+    '#default_value' => variable_get('bakery_master', 'http://drupal.org/'),
     '#description' => t('Specify the master site for your bakery network.'),
   );
 
