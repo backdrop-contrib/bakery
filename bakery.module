@@ -31,7 +31,7 @@ function bakery_perm() {
 }
 
 function bakery_translated_menu_link_alter(&$item) {
-  if ($item['href'] = 'bakery') {
+  if ($item['href'] == 'bakery') {
     $item['localized_options']['query'] = drupal_get_destination();
   } 
 }
