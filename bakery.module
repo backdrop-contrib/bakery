@@ -86,7 +86,7 @@ function bakery_settings() {
   return system_settings_form($form);
 }
 
-function _bakery_taste_cookie() {
+function _bakery_taste_chocolatechip_cookie() {
   $key = variable_get('bakery_key', '');
 
   watchdog('bakery', 'Cookies:<pre>' . print_r($_COOKIE, TRUE) . '</pre>');
@@ -197,7 +197,7 @@ function bakery_user($op, &$edit, &$account, $category = NULL) {
  * Implementation of hook_init().
  */
 function bakery_init() {
-  _bakery_taste_cookie();
+  _bakery_taste_chocolatechip_cookie();
 }
 
 // Hide username and password options. 
