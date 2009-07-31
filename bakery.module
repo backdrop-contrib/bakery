@@ -189,6 +189,7 @@ function _bakery_taste_chocolatechip_cookie() {
             'name' => $cookie['name'],
             'mail' => $cookie['mail'],
             'init' => $cookie['init'],
+            'status' => variable_get('user_register', 1),
             );
           $account = user_save(new stdClass(), $new);
           $account = user_load($account->uid);
