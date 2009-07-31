@@ -26,6 +26,35 @@ function bakery_menu() {
   return $items;
 }
 
+
+/**
+ * Implementation of hook_menu_alter().
+ */
+function bakery_menu_alter(&$callbacks) {
+  if (!variable_get('bakery_is_master', 0)) {
+    unset($callbacks['user/login'], $callbacks['user/password'], $callbacks['user/reset/%/%/%'], $callbacks['user/register']);
+
+    // Registration and login pages.
+    $callbacks['user'] = array(
+      'title' => 'User account',
+      'page callback' => 'bakery_user_page',
+      'access callback' => 'user_is_logged_in',
+      'type' => MENU_CALLBACK,
+      );
+  }
+}
+
+
+/**
+ * Implementation of hook_translated_menu_link_alter().
+ */
+function bakery_translated_menu_link_alter(&$item) {
+  if ($item['href'] == 'bakery') {
+    $item['localized_options']['query'] = drupal_get_destination();
+  }
+}
+
+
 /**
  * Implementation of hook_perm().
  */
@@ -64,16 +93,6 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
   if (!variable_get('bakery_allow_local', 1) && !user_access('administer bakery')) {
     $form['account']['name']['#access'] = FALSE;
     $form['account']['pass']['#access'] = FALSE;
-  }
-}
-
-
-/**
- * Implementation of hook_translated_menu_link_alter().
- */
-function bakery_translated_menu_link_alter(&$item) {
-  if ($item['href'] == 'bakery') {
-    $item['localized_options']['query'] = drupal_get_destination();
   }
 }
 
@@ -126,11 +145,16 @@ function bakery_settings() {
 
 
 /**
- * Implementation of hook_menu_alter().
+ * Access callback for path /user.
+ *
+ * Displays user profile if user is logged in, or login form for anonymous
+ * users.
  */
-function bakery_menu_alter(&$callbacks) {
-  if (!variable_get('bakery_is_master', 0)) {
-    unset($callbacks['user/login'], $callbacks['user/password'], $callbacks['user/reset/%/%/%'], $callbacks['user/register']);
+function bakery_user_page() {
+  global $user;
+  if ($user->uid) {
+    menu_set_active_item('user/'. $user->uid);
+    return menu_execute_active_handler();
   }
 }
 
@@ -190,6 +214,7 @@ function _bakery_taste_chocolatechip_cookie() {
             'mail' => $cookie['mail'],
             'init' => $cookie['init'],
             'status' => variable_get('user_register', 1),
+            'pass' => user_password(),
             );
           $account = user_save(new stdClass(), $new);
           $account = user_load($account->uid);
