@@ -145,7 +145,7 @@ function _bakery_validate_cookie($type = 'CHOCOLATECHIP') {
   }
   
   $cookie = unserialize(bakery_mix($_COOKIE[$type], 0));
-  $signature = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
+  $signature = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['mail'] . '/' . $cookie['timestamp'], $key);
 
   $valid = FALSE;
 
@@ -169,11 +169,11 @@ function _bakery_taste_chocolatechip_cookie() {
     // Bake a fresh cookie. Yum.
     _bakery_bake_chocolatechip_cookie($cookie['name'], $cookie['mail'], $cookie['init']);
 
-    if ($user->name != $cookie['name']) {
+    if (!$user->uid && !variable_get('bakery_is_master', 0)) {
       $account = user_load(array('name' => $cookie['name']));
       
       // Create the account if it doesn't exist.
-      if (!$account && !variable_get('bakery_is_master', 0)) {
+      if (!$account) {
         $checks = TRUE;
         if (db_result(db_query("SELECT COUNT(*) FROM {users} WHERE uid != %d AND LOWER(mail) = LOWER('%s')", $user->uid, $cookie['mail'])) > 0) {
           drupal_set_message(t('The e-mail address %email is already registered. <a href="@contact">Please contact the site administrator.</a>', array('%email' => $cookie['mail'], '@contact' => variable_get('bakery_master', 'http://drupal.org/') .'contact')), 'error');
@@ -244,7 +244,7 @@ function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
     $cookie['init'] = $init;
     $cookie['calories'] = 480;
     $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
-    $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
+    $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['mail'] . '/' . $cookie['timestamp'], $key);
     setcookie('CHOCOLATECHIP', bakery_mix(serialize($cookie), 1), $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''));
     watchdog('bakery', 'Set single-sign-on cookie.');
   }
@@ -260,11 +260,12 @@ function bakery_bake_oatmeal_cookie() {
     global $base_root;
     $cookie = array();
     $cookie['name'] = 'login';
+    $cookie['mail'] = 'no_mail';
     $destination = drupal_get_destination();
     $cookie['destination'] = $base_root .'/'. substr($destination, strpos($destination, '=') + 1);
     $cookie['calories'] = 320;
     $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
-    $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
+    $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['mail'] . '/' . $cookie['timestamp'], $key);
     setcookie('OATMEAL', bakery_mix(serialize($cookie), 1), $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''));
   }
 
