@@ -33,31 +33,53 @@ function bakery_perm() {
   return array('administer bakery');
 }
 
+/**
+ * Implementation of hook_user().
+ */
+function bakery_user($op, &$edit, &$account, $category = NULL) {
+  if ($op == 'login') {
+    _bakery_bake_chocolatechip_cookie($account->name, $account->mail, url("user/$account->uid/edit", array('absolute' => TRUE)));
+    if (variable_get('bakery_is_master', 0)) {
+      _bakery_taste_oatmeal_cookie();
+    }
+  }
+  else if ($op == 'logout') {
+    _bakery_eat_cookie();
+  }
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function bakery_init() {
+  _bakery_taste_chocolatechip_cookie();
+}
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * Hide username and password options. 
+ */
+function bakery_form_alter(&$form, $form_state, $form_id) {
+  if (!variable_get('bakery_allow_local', 1) && !user_access('administer bakery')) {
+    $form['account']['name']['#access'] = FALSE;
+    $form['account']['pass']['#access'] = FALSE;
+  }
+}
+
+
+/**
+ * Implementation of hook_translated_menu_link_alter().
+ */
 function bakery_translated_menu_link_alter(&$item) {
   if ($item['href'] == 'bakery') {
     $item['localized_options']['query'] = drupal_get_destination();
   }
 }
 
-function bakery_bake_oatmeal_cookie() {
-
-  $key = variable_get('bakery_key', '');
-  if (!empty($key)) {
-    global $base_root;
-    $cookie = array();
-    $cookie['name'] = 'login';
-    $destination = drupal_get_destination();
-    $cookie['destination'] = $base_root .'/'. substr($destination, strpos($destination, '=') + 1);
-    $cookie['calories'] = 320;
-    $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
-    $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
-    setcookie('OATMEAL', serialize($cookie), $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''));
-  }
-
-  unset($_REQUEST['destination']);
-  drupal_goto(trim(variable_get('bakery_master', 'http://drupal.org/'), '/') .'/user/login');
-}
-
+/**
+ * Admin settings, see INSTALL.txt
+ */
 function bakery_settings() {
   $form = array();
 
@@ -137,7 +159,7 @@ function _bakery_validate_cookie($type = 'CHOCOLATECHIP') {
 }
 
 /**
- * 
+ * Test identification cookie
  */
 function _bakery_taste_chocolatechip_cookie() {
   $valid = _bakery_validate_cookie();
@@ -201,7 +223,7 @@ function _bakery_taste_chocolatechip_cookie() {
 }
 
 /**
- * 
+ * Test redirect cookie
  */
 function _bakery_taste_oatmeal_cookie() {
   $valid = _bakery_validate_cookie('OATMEAL');
@@ -213,6 +235,9 @@ function _bakery_taste_oatmeal_cookie() {
   }
 }
 
+/**
+ * Create a new cookie for identification
+ */
 function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
   $key = variable_get('bakery_key', '');
   if (!empty($key)) {
@@ -228,37 +253,33 @@ function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
   }
 }
 
+/**
+ * Create a new cookie for redirection after login
+ */
+function bakery_bake_oatmeal_cookie() {
+
+  $key = variable_get('bakery_key', '');
+  if (!empty($key)) {
+    global $base_root;
+    $cookie = array();
+    $cookie['name'] = 'login';
+    $destination = drupal_get_destination();
+    $cookie['destination'] = $base_root .'/'. substr($destination, strpos($destination, '=') + 1);
+    $cookie['calories'] = 320;
+    $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
+    $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
+    setcookie('OATMEAL', serialize($cookie), $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''));
+  }
+
+  unset($_REQUEST['destination']);
+  drupal_goto(trim(variable_get('bakery_master', 'http://drupal.org/'), '/') .'/user/login');
+}
+
+/**
+ * Destroy unwanted cookies
+ */
 function _bakery_eat_cookie($type = 'CHOCOLATECHIP') {
   setcookie($type, '', $_SERVER['REQUEST_TIME'] - 3600);
   setcookie($type, '', $_SERVER['REQUEST_TIME'] - 3600, '/', variable_get('bakery_domain', ''));  
 }
 
-/**
- * Implementation of hook_user().
- */
-function bakery_user($op, &$edit, &$account, $category = NULL) {
-  if ($op == 'login') {
-    _bakery_bake_chocolatechip_cookie($account->name, $account->mail, url("user/$account->uid/edit", array('absolute' => TRUE)));
-    if (variable_get('bakery_is_master', 0)) {
-      _bakery_taste_oatmeal_cookie();
-    }
-  }
-  else if ($op == 'logout') {
-    _bakery_eat_cookie();
-  }
-}
-
-/**
- * Implementation of hook_init().
- */
-function bakery_init() {
-  _bakery_taste_chocolatechip_cookie();
-}
-
-// Hide username and password options. 
-function bakery_form_alter(&$form, $form_state, $form_id) {
-  if (!variable_get('bakery_allow_local', 1) && !user_access('administer bakery')) {
-    $form['account']['name']['#access'] = FALSE;
-    $form['account']['pass']['#access'] = FALSE;
-  }
-}
