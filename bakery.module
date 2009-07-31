@@ -230,8 +230,6 @@ function _bakery_taste_chocolatechip_cookie() {
   }
   
   if (!$valid) {
-    watchdog('bakery', 'Eating the bad cookie.');
-  
     // Eat the bad cookie. Burp.
     _bakery_eat_cookie();
     
