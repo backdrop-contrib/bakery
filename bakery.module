@@ -193,11 +193,11 @@ function _bakery_taste_chocolatechip_cookie() {
     // Bake a fresh cookie. Yum.
     _bakery_bake_chocolatechip_cookie($cookie['name'], $cookie['mail'], $cookie['init']);
 
-    if (!$user->uid && !variable_get('bakery_is_master', 0)) {
-      $account = user_load(array('name' => $cookie['name']));
+    if (!$user->uid) {
+      $account = user_load(array('name' => $cookie['name'], 'mail' => $cookie['mail']));
       
       // Create the account if it doesn't exist.
-      if (!$account) {
+      if (!$account && !variable_get('bakery_is_master', 0)) {
         $checks = TRUE;
         if (db_result(db_query("SELECT COUNT(*) FROM {users} WHERE uid != %d AND LOWER(mail) = LOWER('%s')", $user->uid, $cookie['mail'])) > 0) {
           drupal_set_message(t('The e-mail address %email is already registered. <a href="@contact">Please contact the site administrator.</a>', array('%email' => $cookie['mail'], '@contact' => variable_get('bakery_master', 'http://drupal.org/') .'contact')), 'error');
