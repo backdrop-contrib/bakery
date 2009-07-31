@@ -140,13 +140,11 @@ function bakery_menu_alter(&$callbacks) {
 function _bakery_validate_cookie($type = 'CHOCOLATECHIP') {
   $key = variable_get('bakery_key', '');
 
-  watchdog('bakery', 'Cookies:<pre>' . print_r($_COOKIE, TRUE) . '</pre>');
-
   if (!isset($_COOKIE[$type]) || !$key || !variable_get('bakery_domain', '')) {
     return;
   }
   
-  $cookie = unserialize($_COOKIE[$type]);
+  $cookie = unserialize(bakery_mix($_COOKIE[$type], 0));
   $signature = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
 
   $valid = FALSE;
@@ -155,18 +153,17 @@ function _bakery_validate_cookie($type = 'CHOCOLATECHIP') {
     $valid = TRUE;
   }
 
-  return $valid;
+  return $valid ? $cookie : $valid;
 }
 
 /**
  * Test identification cookie
  */
 function _bakery_taste_chocolatechip_cookie() {
-  $valid = _bakery_validate_cookie();
-  if ($valid) {
+  $cookie = _bakery_validate_cookie();
+  if ($cookie) {
     global $user;
 
-    $cookie = unserialize($_COOKIE['CHOCOLATECHIP']);
     watchdog('bakery', 'This is a valid cookie.');
   
     // Bake a fresh cookie. Yum.
@@ -226,10 +223,9 @@ function _bakery_taste_chocolatechip_cookie() {
  * Test redirect cookie
  */
 function _bakery_taste_oatmeal_cookie() {
-  $valid = _bakery_validate_cookie('OATMEAL');
+  $cookie = _bakery_validate_cookie('OATMEAL');
 
-  if ($valid) {
-    $cookie = unserialize($_COOKIE['OATMEAL']);
+  if ($cookie) {
     _bakery_eat_cookie('OATMEAL');
     drupal_goto($cookie['destination']);
   }
@@ -248,7 +244,7 @@ function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
     $cookie['calories'] = 480;
     $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
     $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
-    setcookie('CHOCOLATECHIP', serialize($cookie), $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''));
+    setcookie('CHOCOLATECHIP', bakery_mix(serialize($cookie), 1), $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''));
     watchdog('bakery', 'Set single-sign-on cookie.');
   }
 }
@@ -268,7 +264,7 @@ function bakery_bake_oatmeal_cookie() {
     $cookie['calories'] = 320;
     $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
     $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
-    setcookie('OATMEAL', serialize($cookie), $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''));
+    setcookie('OATMEAL', bakery_mix(serialize($cookie), 1), $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''));
   }
 
   unset($_REQUEST['destination']);
@@ -283,3 +279,31 @@ function _bakery_eat_cookie($type = 'CHOCOLATECHIP') {
   setcookie($type, '', $_SERVER['REQUEST_TIME'] - 3600, '/', variable_get('bakery_domain', ''));  
 }
 
+/**
+ * Encryption
+ * 
+ * @param $text, The text that you want to encrypt. 
+ * @param $crypt = 1 if you want to crypt, or 0 if you want to decrypt. 
+ */
+function bakery_mix($text, $crypt) { 
+  $key = variable_get('bakery_key', '');
+
+  $td = mcrypt_module_open('rijndael-128', '', 'ecb', '');
+  $iv = mcrypt_create_iv(mcrypt_enc_get_iv_size($td), MCRYPT_RAND);
+
+  $key = substr($key, 0, mcrypt_enc_get_key_size($td));
+
+  mcrypt_generic_init($td, $key, $iv);
+
+  if($crypt) {
+    $encrypted_data = mcrypt_generic($td, $text);
+  }
+  else {
+    $encrypted_data = mdecrypt_generic($td, $text);
+  }
+
+  mcrypt_generic_deinit($td);
+  mcrypt_module_close($td);
+
+  return $encrypted_data;
+}
