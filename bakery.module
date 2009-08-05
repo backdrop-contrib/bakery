@@ -285,7 +285,9 @@ function bakery_bake_oatmeal_cookie() {
     $cookie['name'] = 'login';
     $cookie['mail'] = 'no_mail';
     $destination = drupal_get_destination();
-    $cookie['destination'] = $base_root .'/'. substr($destination, strpos($destination, '=') + 1);
+    $destination = substr($destination, strpos($destination, '=') + 1);
+    $destination = ($destination == 'bakery') ? '' : $destination;
+    $cookie['destination'] = $base_root .'/'. $destination;
     $cookie['calories'] = 320;
     $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
     $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['mail'] . '/' . $cookie['timestamp'], $key);
