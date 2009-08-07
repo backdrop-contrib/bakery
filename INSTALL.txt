@@ -45,3 +45,8 @@ f) Cookie domain: example.com
 
 Additional slave sites can be created like sub.example.com.
 
+Caveats
+=======
+
+If you use bakery with OG, make sure that bakery has a lower weight than OG.
+
