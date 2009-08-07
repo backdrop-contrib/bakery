@@ -160,6 +160,10 @@ function bakery_user_page() {
 
 /**
  * Function to validate cookies
+ * 
+ * @param $type (string) CHOCOLATECHIP or OATMEAL, default CHOCOLATECHIP
+ *
+ * @return the validated and decrypted cookie in an array or FALSE
  */
 function _bakery_validate_cookie($type = 'CHOCOLATECHIP') {
   $key = variable_get('bakery_key', '');
@@ -229,7 +233,7 @@ function _bakery_taste_chocolatechip_cookie() {
     return TRUE;
   }
   
-  if (!$valid) {
+  if (!$cookie) {
     // Eat the bad cookie. Burp.
     _bakery_eat_cookie();
     
