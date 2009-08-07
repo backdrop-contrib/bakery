@@ -50,3 +50,5 @@ Caveats
 
 If you use bakery with OG, make sure that bakery has a lower weight than OG.
 
+If you run suhosin or mod_security you may run into trouble.
+
