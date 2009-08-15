@@ -73,7 +73,10 @@ function bakery_user($op, &$edit, &$account, $category = NULL) {
     }
   }
   else if ($op == 'logout') {
+    // eat SSO cookie
     _bakery_eat_cookie();
+    // eat session cookie
+    _bakery_eat_cookie(session_name());
   }
 }
 
@@ -90,9 +93,15 @@ function bakery_init() {
  * Hide username and password options. 
  */
 function bakery_form_alter(&$form, $form_state, $form_id) {
-  if (!variable_get('bakery_allow_local', 1) && !user_access('administer bakery')) {
-    $form['account']['name']['#access'] = FALSE;
-    $form['account']['pass']['#access'] = FALSE;
+  switch ($form_id) {
+    case 'user_edit_form':
+      if (!variable_get('bakery_allow_local', 1) && !user_access('administer bakery')) {
+        $form['account']['name']['#access'] = FALSE;
+        $form['account']['pass']['#access'] = FALSE;
+      }
+      break;
+    default:
+      break;
   }
 }
 
@@ -226,7 +235,7 @@ function _bakery_taste_chocolatechip_cookie() {
       }
 
       if ($account && $user->uid == 0) {
-        user_external_login($account);
+        bakery_user_external_login($account);
       }
     }
 
@@ -306,7 +315,7 @@ function bakery_bake_oatmeal_cookie() {
  * Destroy unwanted cookies
  */
 function _bakery_eat_cookie($type = 'CHOCOLATECHIP') {
-  setcookie($type, '', $_SERVER['REQUEST_TIME'] - 3600);
+  setcookie($type, '', $_SERVER['REQUEST_TIME'] - 3600, '/');
   setcookie($type, '', $_SERVER['REQUEST_TIME'] - 3600, '/', variable_get('bakery_domain', ''));  
 }
 
@@ -337,4 +346,65 @@ function bakery_mix($text, $crypt) {
   mcrypt_module_close($td);
 
   return $encrypted_data;
+}
+
+/**
+ * Perform standard Drupal login operations for a user object.
+ *
+ * The user object must already be authenticated. This function verifies
+ * that the user account is not blocked/denied and then performs the login,
+ * updates the login timestamp in the database, invokes hook_user('login'),
+ * and regenerates the session.
+ *
+ * @param $account
+ *    An authenticated user object to be set as the currently logged
+ *    in user.
+ * @param $edit
+ *    The array of form values submitted by the user, if any.
+ *    This array is passed to hook_user op login.
+ * @return boolean
+ *    TRUE if the login succeeds, FALSE otherwise.
+ */
+function bakery_user_external_login($account, $edit = array()) {
+  $form = drupal_get_form('user_login');
+
+  $state['values'] = $edit;
+  if (empty($state['values']['name'])) {
+    $state['values']['name'] = $account->name;
+  }
+
+  // Check if user is blocked or denied by access rules.
+  user_login_name_validate($form, $state, (array)$account);
+  if (form_get_errors()) {
+    // Invalid login.
+    return FALSE;
+  }
+
+  // Valid login.
+  global $user;
+  $user = $account;
+  bakery_user_authenticate_finalize($state['values']);
+  return TRUE;
+}
+
+/**
+ * Finalize the login process. Must be called when logging in a user.
+ *
+ * The function records a watchdog message about the new session, saves the
+ * login timestamp, calls hook_user op 'login' and generates a new session.
+ *
+ * $param $edit
+ *   This array is passed to hook_user op login.
+ */
+function bakery_user_authenticate_finalize(&$edit) {
+  global $user;
+  watchdog('user', 'Session opened for %name.', array('%name' => $user->name));
+  // Update the user table timestamp noting user has logged in.
+  // This is also used to invalidate one-time login links.
+  $user->login = time();
+  db_query("UPDATE {users} SET login = %d WHERE uid = %d", $user->login, $user->uid);
+
+  // Regenerate the session ID to prevent against session fixation attacks.
+  # sess_regenerate();
+  user_module_invoke('login', $edit, $user);
 }
