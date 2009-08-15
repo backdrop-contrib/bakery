@@ -40,7 +40,7 @@ function bakery_menu_alter(&$callbacks) {
       'page callback' => 'bakery_user_page',
       'access callback' => 'user_is_logged_in',
       'type' => MENU_CALLBACK,
-      );
+    );
   }
 }
 
@@ -225,7 +225,7 @@ function _bakery_taste_chocolatechip_cookie() {
         }
       }
 
-      if ($account) {
+      if ($account && $user->uid == 0) {
         user_external_login($account);
       }
     }
