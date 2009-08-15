@@ -9,8 +9,8 @@ Note that "localhost" will not work in most browsers.
 
 On both domains:
 
-1) You edit settings.php and check that $cookie_domain is not set or
-set to different values.
+1) You edit settings.php and check that $cookie_domain is set to
+   example.com.
 
 2) You install bakery.module.
 
