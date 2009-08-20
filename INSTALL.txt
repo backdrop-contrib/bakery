@@ -5,7 +5,9 @@ You need two Drupal sites, e.g. example.com and sub.example.com.  It
 is ideal if you can copy the user base of the main site to the slave
 site or if sub.example.com is a new site.
 
-Note that "localhost" will not work in most browsers.
+Note that "localhost" will not work in most browsers. If you wish to
+test Bakery SSO locally, you must set up a local domain for it to
+work.
 
 On both domains:
 
