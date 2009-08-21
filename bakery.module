@@ -32,11 +32,17 @@ function bakery_menu() {
  */
 function bakery_menu_alter(&$callbacks) {
   if (!variable_get('bakery_is_master', 0)) {
-    unset($callbacks['user/login'], $callbacks['user/password'], $callbacks['user/reset/%/%/%'], $callbacks['user/register']);
+    unset($callbacks['user/login'], $callbacks['user/password'], $callbacks['user/reset/%/%/%']);
 
     // Registration and login pages.
     $callbacks['user'] = array(
       'title' => 'User account',
+      'page callback' => 'bakery_user_page',
+      'access callback' => 'user_is_logged_in',
+      'type' => MENU_CALLBACK,
+    );
+    $callbacks['user/register'] = array(
+      'title' => 'Register',
       'page callback' => 'bakery_user_page',
       'access callback' => 'user_is_logged_in',
       'type' => MENU_CALLBACK,
@@ -212,7 +218,7 @@ function _bakery_taste_chocolatechip_cookie() {
       // Create the account if it doesn't exist.
       if (!$account && !variable_get('bakery_is_master', 0)) {
         $checks = TRUE;
-        if (db_result(db_query("SELECT COUNT(*) FROM {users} WHERE uid != %d AND LOWER(mail) = LOWER('%s')", $user->uid, $cookie['mail'])) > 0) {
+        if (db_result(db_query("SELECT COUNT(*) FROM {users} WHERE uid != %d AND mail != '' AND LOWER(mail) = LOWER('%s')", $user->uid, $cookie['mail'])) > 0) {
           drupal_set_message(t('The e-mail address %email is already registered. <a href="@contact">Please contact the site administrator.</a>', array('%email' => $cookie['mail'], '@contact' => variable_get('bakery_master', 'http://drupal.org/') .'contact')), 'error');
           $checks = FALSE;
         }
