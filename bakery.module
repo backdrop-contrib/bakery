@@ -299,7 +299,7 @@ function bakery_bake_oatmeal_cookie() {
     $cookie['mail'] = 'no_mail';
     $destination = drupal_get_destination();
     $destination = substr($destination, strpos($destination, '=') + 1);
-    $destination = ($destination == 'bakery') ? '' : $destination;
+    $destination = ($destination == 'bakery') ? '' : urldecode($destination);
     $cookie['destination'] = $base_root .'/'. $destination;
     $cookie['calories'] = 320;
     $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
