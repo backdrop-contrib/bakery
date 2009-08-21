@@ -115,7 +115,9 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
  * Admin settings, see INSTALL.txt
  */
 function bakery_settings() {
-  $form = array();
+  $form = array(
+    '#submit' => array('bakery_settings_submit'),
+  );
 
   $form['bakery_is_master'] = array(
     '#type' => 'checkbox',
@@ -156,6 +158,26 @@ function bakery_settings() {
   );
   
   return system_settings_form($form);
+}
+
+function bakery_settings_submit($form, &$form_state) {
+  db_query("DELETE FROM {url_alias} WHERE src = 'bakery' AND dst IN ('user/login', 'user/register')");
+  if (!$form_state['values']['bakery_is_master']) {
+    // Add URL aliases to bakery
+    $aliases = array(
+      array(
+        'src' => 'bakery',
+        'dst' => 'user/login',
+      ),
+      array(
+        'src' => 'bakery',
+        'dst' => 'user/register',
+      ),
+    );
+    foreach ($aliases as $alias) {
+      drupal_write_record('url_alias', $alias);
+    }
+  }
 }
 
 
