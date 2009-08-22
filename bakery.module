@@ -94,7 +94,7 @@ function bakery_user($op, &$array, &$account, $category = NULL) {
   else if ($op == 'update' && variable_get('bakery_is_master', 0)) {
     // We store email/name if they changed. We want to wait with doing
     // anything else until the changes are saved locally.
-    foreach (array('name', 'mail', 'picture') as $type) {
+    foreach (array('name', 'mail', 'picture', 'language', 'signature', 'timezone') as $type) {
       if (isset($array[$type]) && $account->$type != $array[$type]) {
         $_SESSION['bakery'][$type] = $array[$type];
       }
@@ -426,7 +426,7 @@ function bakery_eat_stroopwafel_cookie() {
     $message = t('Account not found on %slave.', array('%slave' => variable_get('site_name', '')));
   }
   else {
-    $fields = array('name' => '', 'mail' => '', 'picture' => '');
+    $fields = array('name' => '', 'mail' => '', 'picture' => '', 'language' => '', 'signature' => '', 'timezone' => '');
     foreach ($fields as $type => $value) {
       $fields[$type] = isset($stroopwafel[$type]) ? $stroopwafel[$type] : $account->$type;
     }
