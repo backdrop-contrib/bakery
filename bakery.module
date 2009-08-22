@@ -138,10 +138,17 @@ function bakery_init() {
  */
 function bakery_form_alter(&$form, $form_state, $form_id) {
   switch ($form_id) {
+    case 'user_profile_form':
     case 'user_edit_form':
-      if (!variable_get('bakery_allow_local', 1) && !user_access('administer bakery')) {
-        $form['account']['name']['#access'] = FALSE;
-        $form['account']['pass']['#access'] = FALSE;
+      if (!variable_get('bakery_is_master', 0) && !user_access('administer bakery')) {
+        if (isset($form['account'])) {
+          $form['account']['name']['#access'] = FALSE;
+          $form['account']['pass']['#access'] = FALSE;
+        }
+        if (isset($form['picture'])) {
+          $form['picture']['picture_delete']['#access'] = FALSE;
+          $form['picture']['picture_upload']['#access'] = FALSE;
+        }
       }
       break;
     default:
@@ -176,12 +183,6 @@ function bakery_settings() {
     '#title' => 'Slave sites',
     '#default_value' => implode("\n", variable_get('bakery_slaves', array())),
     '#description' => t('Specify any slave sites in your bakery network that you want to update if a user changes email or username on the master. Enter one site per line, in the form "http://sub.example.com/".'),
-  );
-
-  $form['bakery_allow_local'] = array(
-    '#type' => 'checkbox',
-    '#title' => 'Allow local sign-ons and account management',
-    '#default_value' => variable_get('bakery_allow_local', 1),
   );
 
   $form['bakery_freshness'] = array(
