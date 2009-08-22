@@ -23,6 +23,8 @@ a) Master site: yes
 
 b) Master site: http://example.com/
 
+c) Slave sites: http://sub.example.com/
+
 c) Allow local ... : yes
 
 d) Freshness: the default is fine
