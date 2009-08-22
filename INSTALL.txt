@@ -31,6 +31,9 @@ e) Key: an alphanumeric string, longer is better
 
 f) Cookie domain: example.com
 
+g) Supported profile fields: Any fields that you like to export. Name
+   and Mail are always exported.
+
 On sub.example.com/admin/setting/bakery you chose
 
 a) Master site: no
@@ -45,6 +48,10 @@ e) Key: an alphanumeric string, longer is better (the same string as
        on example.com)
 
 f) Cookie domain: example.com
+
+g) Supported profile fields: Any fields that you like to import. Name
+   and Mail are always imported. You can only import fields that are
+   exported by the master. You can chose to ignore some of them, though.
 
 Additional slave sites can be created like sub.example.com.
 

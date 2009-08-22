@@ -94,8 +94,8 @@ function bakery_user($op, &$array, &$account, $category = NULL) {
   else if ($op == 'update' && variable_get('bakery_is_master', 0)) {
     // We store email/name if they changed. We want to wait with doing
     // anything else until the changes are saved locally.
-    foreach (array('name', 'mail', 'picture', 'language', 'signature', 'timezone') as $type) {
-      if (isset($array[$type]) && $account->$type != $array[$type]) {
+    foreach (variable_get('bakery_supported_fields', array()) as $type => $enabled) {
+      if ($enabled && isset($array[$type]) && $account->$type != $array[$type]) {
         $_SESSION['bakery'][$type] = $array[$type];
       }
     }
@@ -145,9 +145,39 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
           $form['account']['name']['#access'] = FALSE;
           $form['account']['pass']['#access'] = FALSE;
         }
-        if (isset($form['picture'])) {
-          $form['picture']['picture_delete']['#access'] = FALSE;
-          $form['picture']['picture_upload']['#access'] = FALSE;
+        foreach (variable_get('bakery_supported_fields', array()) as $type => $value) {
+          if ($value) {
+            switch($type) {
+              case 'picture':
+                if (isset($form['picture'])) {
+                  $form['picture']['picture_delete']['#access'] = FALSE;
+                  $form['picture']['picture_upload']['#access'] = FALSE;
+                  $form['picture']['#description'] .= ' '. t('You can change the image <a href="!url">at the master site</a>.', array('!url' => $form['_account']['#value']->init));
+                }
+                break;
+              case 'language':
+                if (isset($form['locale'][$type])) {
+                  $form['locale'][$type]['#disabled'] = TRUE;
+                  $form['locale'][$type]['#description'] .= ' '. t('You can change the language setting <a href="!url">at the master site</a>.', array('!url' => $form['_account']['#value']->init));
+                }
+                break;
+              case 'signature':
+                if (isset($form['signature_settings'][$type])) {
+                  $form['signature_settings'][$type]['#disabled'] = TRUE;
+                  $form['signature_settings'][$type]['#description'] .= ' '. t('You can change the signature <a href="!url">at the master site</a>.', array('!url' => $form['_account']['#value']->init));
+                }
+                break;
+              default:
+                if (isset($form[$type])) {
+                  $form[$type]['#disabled'] = TRUE;
+                }
+                if (isset($form[$type][$type])) {
+                  $form[$type][$type]['#disabled'] = TRUE;
+                  $form[$type][$type]['#description'] .= ' '. t('You can change this setting <a href="!url">at the master site</a>.', array('!url' => $form['_account']['#value']->init));
+                }
+                break;
+            }
+          }
         }
       }
       break;
@@ -202,7 +232,19 @@ function bakery_settings() {
     '#title' => 'Cookie domain',
     '#default_value' => variable_get('bakery_domain', ''),
   );
-  
+
+  $default = variable_get('bakery_supported_fields', array());
+  $default['mail'] = 'mail';
+  $default['name'] = 'name';
+  $options = array('name' => t('username'), 'mail' => t('e-mail'), 'picture' => t('user picture'), 'language' => t('language'), 'signature' => t('signature'), 'timezone' => t('timezone'));
+  $form['bakery_supported_fields'] = array(
+    '#type' => 'checkboxes',
+    '#title' => 'Supported profile fields',
+    '#default_value' => $default,
+    '#options' => $options,
+    '#description' => t('Chose the profile fields that should be exported by the master and imported on the slaves. Username and E-mail are always exported. The correct export of individual fields may depend on the appropriate settings for other modules on both master and slaves. You need to configure this setting on both the master and the slaves.'),
+  );
+
   return system_settings_form($form);
 }
 
@@ -226,6 +268,9 @@ function bakery_settings_submit($form, &$form_state) {
   }
   if ($form_state['values']['bakery_slaves']) {
     $form_state['values']['bakery_slaves'] = explode("\n", trim(str_replace("\r", '', $form_state['values']['bakery_slaves'])));
+  }
+  else {
+    $form_state['values']['bakery_slaves'] = array();
   }
 }
 
@@ -426,9 +471,11 @@ function bakery_eat_stroopwafel_cookie() {
     $message = t('Account not found on %slave.', array('%slave' => variable_get('site_name', '')));
   }
   else {
-    $fields = array('name' => '', 'mail' => '', 'picture' => '', 'language' => '', 'signature' => '', 'timezone' => '');
-    foreach ($fields as $type => $value) {
-      $fields[$type] = isset($stroopwafel[$type]) ? $stroopwafel[$type] : $account->$type;
+    $fields = array();
+    foreach (variable_get('bakery_supported_fields', array()) as $type => $value) {
+      if ($value) {
+        $fields[$type] = isset($stroopwafel[$type]) ? $stroopwafel[$type] : $account->$type;
+      }
     }
     user_save($account, $fields);
     watchdog('bakery', 'user updated name %name_old to %name_new, mail %mail_old to %mail_new.', array('%name_old' => $account->name, '%name_new' => $stroopwafel['name'], '%mail_old' => $account->mail, '%mail_new' => $stroopwafel['mail']));
