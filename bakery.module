@@ -95,13 +95,11 @@ function bakery_user($op, &$array, &$account, $category = NULL) {
     // We store email/name if they changed. We want to wait with doing
     // anything else until the changes are saved locally.
     if (isset($array['name']) && $account->name != $array['name']) {
-      $_SESSION['bakery']['name']['old'] = $account->name;
-      $_SESSION['bakery']['name']['new'] = $array['name'];
+      $_SESSION['bakery']['name'] = $array['name'];
     }
 
     if (isset($array['mail']) && $account->mail != $array['mail']) {
-      $_SESSION['bakery']['mail']['old'] = $account->mail;
-      $_SESSION['bakery']['mail']['new'] = $array['mail'];
+      $_SESSION['bakery']['mail'] = $array['mail'];
     }
   }
   // We need to push changes.
@@ -421,42 +419,17 @@ function bakery_eat_stroopwafel_cookie() {
   unset($_SESSION['bakery']);
 
   $init = variable_get('bakery_master', 'http://drupal.org/') .'user/'. $stroopwafel['uid'] .'/edit';
-  unset($stroopwafel['uid']);
 
   // check if the user exists.
   $account = user_load(array('init' => $init));
   if (!$account) {
-    // user not present, don't bother looking.
-    $stroopwafel = array();
+    // user not present
+    $message = t('Account not found on %slave.', array('%slave' => variable_get('site_name', '')));
   }
-
-  $account = array();
-  $message = '';
-  foreach ($stroopwafel as $type => $data) {
-    $account[$type] = user_load(array($type => $stroopwafel[$type]['old'], 'init' => $init));
-    if (!$account[$type]) {
-      watchdog('bakery', 'mismatch: %old not found for %init.', array('%old' => $stroopwafel[$type]['old'], '%init' => $init), WATCHDOG_WARNING);
-      $message .= ' '. t('Mismatch: %old not found on %slave.', array('%old' => $stroopwafel[$type]['old'], '%slave' => variable_get('site_name', '')));
-      unset($account[$type]);
-    }
-  }
-
-  switch (count($account)) {
-    case 2:
-      user_save($account['name'], array('name' => $stroopwafel['name']['new'], 'mail' => $stroopwafel['mail']['new']));
-      watchdog('bakery', 'user updated name %name_old to %name_new, mail %mail_old to %mail_new.', array('%name_old' => $stroopwafel['name']['old'], '%name_new' => $stroopwafel['name']['new'], '%mail_old' => $stroopwafel['mail']['old'], '%mail_new' => $stroopwafel['mail']['new']));
-      $message .= ' '. t('Successfully updated name and mail on %slave.', array('%slave' => variable_get('site_name', '')));
-      break;
-    case 1:
-      $type = array_shift(array_keys($account));
-      user_save($account[$type], array($type => $stroopwafel[$type]['new']));
-      watchdog('bakery', 'user updated %type %old to %new'. array('%type' => $type, '%old' => $stroopwafel[$type]['old'], '%new' => $stroopwafel[$type]['new']));
-      $message .= ' '. t('Successfully updated %type data on %slave.', array('%type' => $type, '%slave' => variable_get('site_name', '')));
-      break;
-    case 0:
-      // User not present.
-      $message .= ' '. t('No matching account found on %slave.', array('%slave' => variable_get('site_name', '')));
-      break;
+  else {
+    user_save($account, array('name' => isset($stroopwafel['name']) ? $stroopwafel['name'] : $account->name , 'mail' => isset($stroopwafel['mail']) ? $stroopwafel['mail'] : $account->mail));
+    watchdog('bakery', 'user updated name %name_old to %name_new, mail %mail_old to %mail_new.', array('%name_old' => $account->name, '%name_new' => $stroopwafel['name'], '%mail_old' => $account->mail, '%mail_new' => $stroopwafel['mail']));
+    $message = t('Successfully updated name and mail on %slave.', array('%slave' => variable_get('site_name', '')));
   }
 
   module_invoke_all('exit');
