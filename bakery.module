@@ -94,12 +94,10 @@ function bakery_user($op, &$array, &$account, $category = NULL) {
   else if ($op == 'update' && variable_get('bakery_is_master', 0)) {
     // We store email/name if they changed. We want to wait with doing
     // anything else until the changes are saved locally.
-    if (isset($array['name']) && $account->name != $array['name']) {
-      $_SESSION['bakery']['name'] = $array['name'];
-    }
-
-    if (isset($array['mail']) && $account->mail != $array['mail']) {
-      $_SESSION['bakery']['mail'] = $array['mail'];
+    foreach (array('name', 'mail', 'picture') as $type) {
+      if (isset($array[$type]) && $account->$type != $array[$type]) {
+        $_SESSION['bakery'][$type] = $array[$type];
+      }
     }
   }
   // We need to push changes.
@@ -427,9 +425,13 @@ function bakery_eat_stroopwafel_cookie() {
     $message = t('Account not found on %slave.', array('%slave' => variable_get('site_name', '')));
   }
   else {
-    user_save($account, array('name' => isset($stroopwafel['name']) ? $stroopwafel['name'] : $account->name , 'mail' => isset($stroopwafel['mail']) ? $stroopwafel['mail'] : $account->mail));
+    $fields = array('name' => '', 'mail' => '', 'picture' => '');
+    foreach ($fields as $type => $value) {
+      $fields[$type] = isset($stroopwafel[$type]) ? $stroopwafel[$type] : $account->$type;
+    }
+    user_save($account, $fields);
     watchdog('bakery', 'user updated name %name_old to %name_new, mail %mail_old to %mail_new.', array('%name_old' => $account->name, '%name_new' => $stroopwafel['name'], '%mail_old' => $account->mail, '%mail_new' => $stroopwafel['mail']));
-    $message = t('Successfully updated name and mail on %slave.', array('%slave' => variable_get('site_name', '')));
+    $message = t('Successfully updated account on %slave.', array('%slave' => variable_get('site_name', '')));
   }
 
   module_invoke_all('exit');
@@ -534,3 +536,4 @@ function bakery_user_authenticate_finalize(&$edit) {
   # sess_regenerate();
   user_module_invoke('login', $edit, $user);
 }
+
