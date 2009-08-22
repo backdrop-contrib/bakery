@@ -1,4 +1,5 @@
 <?php
+// $Id$
 
 /**
  * Implementation of hook_menu().
@@ -416,12 +417,20 @@ function bakery_bake_oatmeal_cookie() {
  */
 function bakery_eat_stroopwafel_cookie() {
   // the session got set during validation
-  $account = array();
   $stroopwafel = $_SESSION['bakery'];
   unset($_SESSION['bakery']);
 
   $init = variable_get('bakery_master', 'http://drupal.org/') .'user/'. $stroopwafel['uid'] .'/edit';
   unset($stroopwafel['uid']);
+
+  // check if the user exists.
+  $account = user_load(array('init' => $init));
+  if (!$account) {
+    // user not present, don't bother looking.
+    $stroopwafel = array();
+  }
+
+  $account = array();
   $message = '';
   foreach ($stroopwafel as $type => $data) {
     $account[$type] = user_load(array($type => $stroopwafel[$type]['old'], 'init' => $init));
@@ -445,9 +454,8 @@ function bakery_eat_stroopwafel_cookie() {
       $message .= ' '. t('Successfully updated %type data on %slave.', array('%type' => $type, '%slave' => variable_get('site_name', '')));
       break;
     case 0:
-      // this is a bug
-      watchdog('bakery', 'no user updated');
-      $message .= ' '. t('Unspecified error on %slave.', array('%slave' => variable_get('site_name', '')));
+      // User not present.
+      $message .= ' '. t('No matching account found on %slave.', array('%slave' => variable_get('site_name', '')));
       break;
   }
 
