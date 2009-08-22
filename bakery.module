@@ -21,6 +21,12 @@ function bakery_menu() {
       'page callback' => 'bakery_bake_oatmeal_cookie',
       'options' => array('alter' => TRUE),
     );
+    $items['bakery/update'] = array(
+      'title' => 'Update',
+      'access callback' => 'bakery_taste_stroopwafel_cookie',
+      'page callback' => 'bakery_eat_stroopwafel_cookie',
+      'type' => MENU_CALLBACK,
+    );
   }
 
   return $items;
@@ -71,7 +77,7 @@ function bakery_perm() {
 /**
  * Implementation of hook_user().
  */
-function bakery_user($op, &$edit, &$account, $category = NULL) {
+function bakery_user($op, &$array, &$account, $category = NULL) {
   if ($op == 'login') {
     _bakery_bake_chocolatechip_cookie($account->name, $account->mail, url("user/$account->uid/edit", array('absolute' => TRUE)));
     if (variable_get('bakery_is_master', 0)) {
@@ -83,6 +89,41 @@ function bakery_user($op, &$edit, &$account, $category = NULL) {
     _bakery_eat_cookie();
     // eat session cookie
     _bakery_eat_cookie(session_name());
+  }
+  else if ($op == 'update' && variable_get('bakery_is_master', 0)) {
+    // We store email/name if they changed. We want to wait with doing
+    // anything else until the changes are saved locally.
+    if (isset($array['name']) && $account->name != $array['name']) {
+      $_SESSION['bakery']['name']['old'] = $account->name;
+      $_SESSION['bakery']['name']['new'] = $array['name'];
+    }
+
+    if (isset($array['mail']) && $account->mail != $array['mail']) {
+      $_SESSION['bakery']['mail']['old'] = $account->mail;
+      $_SESSION['bakery']['mail']['new'] = $array['mail'];
+    }
+  }
+  // We need to push changes.
+  else if ($op == 'after_update' && variable_get('bakery_is_master', 0) && isset($_SESSION['bakery'])) {
+    $key = variable_get('bakery_key', '');
+    $payload['data'] = serialize($_SESSION['bakery']);
+    $payload['timestamp'] = $_SERVER['REQUEST_TIME'];
+    $payload['uid'] = $account->uid;
+    $payload['signature'] = hash_hmac('sha256', $payload['data'] . '/' . $payload['uid'] .'/'. $payload['timestamp'], $key);
+    $payload = rawurlencode('stroopwafel') .'='. rawurlencode(bakery_mix(serialize($payload), 1));
+    unset($_SESSION['bakery']);
+
+    // now update the slaves
+    $slaves = variable_get('bakery_slaves', array());
+    foreach ($slaves as $slave) {
+      $result = drupal_http_request($slave .'bakery/update', array('Content-Type' => 'application/x-www-form-urlencoded; charset=utf-8'), 'POST', $payload);
+      if ($result->code != 200) {
+        drupal_set_message(t('Error %error for site at %url', array('%error' => $result->error, '%url' => $slave)));
+      }
+      else {
+        drupal_set_message($result->data);
+      }
+    }
   }
 }
 
@@ -133,6 +174,13 @@ function bakery_settings() {
     '#description' => t('Specify the master site for your bakery network.'),
   );
 
+  $form['bakery_slaves'] = array(
+    '#type' => 'textarea',
+    '#title' => 'Slave sites',
+    '#default_value' => implode("\n", variable_get('bakery_slaves', array())),
+    '#description' => t('Specify any slave sites in your bakery network that you want to update if a user changes email or username on the master. Enter one site per line, in the form "http://sub.example.com/".'),
+  );
+
   $form['bakery_allow_local'] = array(
     '#type' => 'checkbox',
     '#title' => 'Allow local sign-ons and account management',
@@ -177,6 +225,9 @@ function bakery_settings_submit($form, &$form_state) {
     foreach ($aliases as $alias) {
       drupal_write_record('url_alias', $alias);
     }
+  }
+  if ($form_state['values']['bakery_slaves']) {
+    $form_state['values']['bakery_slaves'] = explode("\n", trim(str_replace("\r", '', $form_state['values']['bakery_slaves'])));
   }
 }
 
@@ -297,6 +348,26 @@ function _bakery_taste_oatmeal_cookie() {
 }
 
 /**
+ * Validate update request.
+ */
+function bakery_taste_stroopwafel_cookie() {
+  $payload = $_POST['stroopwafel'];
+  $cookie = unserialize(bakery_mix($payload, 0));
+  $key = variable_get('bakery_key', '');
+  $signature = hash_hmac('sha256', $cookie['data'] . '/' . $cookie['uid'] . '/' . $cookie['timestamp'], $key);
+
+  $valid = FALSE;
+
+  if ($signature == $cookie['signature'] && $cookie['timestamp'] + variable_get('bakery_freshness', '3600') >= $_SERVER['REQUEST_TIME']) {
+    $valid = TRUE;
+    $_SESSION['bakery'] = unserialize($cookie['data']);
+    $_SESSION['bakery']['uid'] = $cookie['uid'];
+  }
+
+  return $valid;
+}
+
+/**
  * Create a new cookie for identification
  */
 function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
@@ -337,6 +408,52 @@ function bakery_bake_oatmeal_cookie() {
 
   unset($_REQUEST['destination']);
   drupal_goto(trim(variable_get('bakery_master', 'http://drupal.org/'), '/') .'/user/login');
+}
+
+/**
+ * Menu callback
+ *
+ */
+function bakery_eat_stroopwafel_cookie() {
+  // the session got set during validation
+  $account = array();
+  $stroopwafel = $_SESSION['bakery'];
+  unset($_SESSION['bakery']);
+
+  $init = variable_get('bakery_master', 'http://drupal.org/') .'user/'. $stroopwafel['uid'] .'/edit';
+  unset($stroopwafel['uid']);
+  $message = '';
+  foreach ($stroopwafel as $type => $data) {
+    $account[$type] = user_load(array($type => $stroopwafel[$type]['old'], 'init' => $init));
+    if (!$account[$type]) {
+      watchdog('bakery', 'mismatch: %old not found for %init.', array('%old' => $stroopwafel[$type]['old'], '%init' => $init), WATCHDOG_WARNING);
+      $message .= ' '. t('Mismatch: %old not found on %slave.', array('%old' => $stroopwafel[$type]['old'], '%slave' => variable_get('site_name', '')));
+      unset($account[$type]);
+    }
+  }
+
+  switch (count($account)) {
+    case 2:
+      user_save($account['name'], array('name' => $stroopwafel['name']['new'], 'mail' => $stroopwafel['mail']['new']));
+      watchdog('bakery', 'user updated name %name_old to %name_new, mail %mail_old to %mail_new.', array('%name_old' => $stroopwafel['name']['old'], '%name_new' => $stroopwafel['name']['new'], '%mail_old' => $stroopwafel['mail']['old'], '%mail_new' => $stroopwafel['mail']['new']));
+      $message .= ' '. t('Successfully updated name and mail on %slave.', array('%slave' => variable_get('site_name', '')));
+      break;
+    case 1:
+      $type = array_shift(array_keys($account));
+      user_save($account[$type], array($type => $stroopwafel[$type]['new']));
+      watchdog('bakery', 'user updated %type %old to %new'. array('%type' => $type, '%old' => $stroopwafel[$type]['old'], '%new' => $stroopwafel[$type]['new']));
+      $message .= ' '. t('Successfully updated %type data on %slave.', array('%type' => $type, '%slave' => variable_get('site_name', '')));
+      break;
+    case 0:
+      // this is a bug
+      watchdog('bakery', 'no user updated');
+      $message .= ' '. t('Unspecified error on %slave.', array('%slave' => variable_get('site_name', '')));
+      break;
+  }
+
+  module_invoke_all('exit');
+  print $message;
+  exit();
 }
 
 /**
