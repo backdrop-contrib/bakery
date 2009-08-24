@@ -236,7 +236,7 @@ function bakery_settings() {
   $default = variable_get('bakery_supported_fields', array());
   $default['mail'] = 'mail';
   $default['name'] = 'name';
-  $options = array('name' => t('username'), 'mail' => t('e-mail'), 'picture' => t('user picture'), 'language' => t('language'), 'signature' => t('signature'), 'timezone' => t('timezone'));
+  $options = array('name' => t('username'), 'mail' => t('e-mail'), 'status' => t('status'), 'picture' => t('user picture'), 'language' => t('language'), 'signature' => t('signature'), 'timezone' => t('timezone'));
   $form['bakery_supported_fields'] = array(
     '#type' => 'checkboxes',
     '#title' => 'Supported profile fields',
@@ -456,8 +456,7 @@ function bakery_bake_oatmeal_cookie() {
 }
 
 /**
- * Menu callback
- *
+ * Menu callback, invoked on the slave
  */
 function bakery_eat_stroopwafel_cookie() {
   // the session got set during validation
