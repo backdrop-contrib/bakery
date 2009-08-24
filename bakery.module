@@ -94,7 +94,7 @@ function bakery_user($op, &$array, &$account, $category = NULL) {
   else if ($op == 'update' && variable_get('bakery_is_master', 0)) {
     // We store email/name if they changed. We want to wait with doing
     // anything else until the changes are saved locally.
-    foreach (variable_get('bakery_supported_fields', array()) as $type => $enabled) {
+    foreach (variable_get('bakery_supported_fields', array('mail' => 'mail', 'name' => 'name')) as $type => $enabled) {
       if ($enabled && isset($array[$type]) && $account->$type != $array[$type]) {
         $_SESSION['bakery'][$type] = $array[$type];
       }
@@ -142,12 +142,17 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
     case 'user_edit_form':
       if (!variable_get('bakery_is_master', 0) && !user_access('administer bakery')) {
         if (isset($form['account'])) {
+          $form['account']['#access'] = FALSE;
           $form['account']['name']['#access'] = FALSE;
           $form['account']['pass']['#access'] = FALSE;
+          $form['account']['mail']['#access'] = FALSE;
         }
-        foreach (variable_get('bakery_supported_fields', array()) as $type => $value) {
+        foreach (variable_get('bakery_supported_fields', array('mail' => 'mail', 'name' => 'name')) as $type => $value) {
           if ($value) {
             switch($type) {
+              case 'mail':
+              case 'name':
+                break;
               case 'picture':
                 if (isset($form['picture'])) {
                   $form['picture']['picture_delete']['#access'] = FALSE;
@@ -233,7 +238,7 @@ function bakery_settings() {
     '#default_value' => variable_get('bakery_domain', ''),
   );
 
-  $default = variable_get('bakery_supported_fields', array());
+  $default = variable_get('bakery_supported_fields', array('mail' => 'mail', 'name' => 'name'));
   $default['mail'] = 'mail';
   $default['name'] = 'name';
   $options = array('name' => t('username'), 'mail' => t('e-mail'), 'status' => t('status'), 'picture' => t('user picture'), 'language' => t('language'), 'signature' => t('signature'), 'timezone' => t('timezone'));
@@ -370,7 +375,9 @@ function _bakery_taste_chocolatechip_cookie() {
     _bakery_eat_cookie();
 
     global $user;
-    if ($user->uid > 0) {
+    // we log out users that have lost their SSO cookie, with the exception of
+    // UID 1.
+    if ($user->uid > 1) {
       watchdog('bakery', 'Logging out the user with the bad cookie.');
       require_once drupal_get_path('module', 'user') . '/user.pages.inc';
       user_logout();
@@ -397,16 +404,18 @@ function _bakery_taste_oatmeal_cookie() {
  */
 function bakery_taste_stroopwafel_cookie() {
   $payload = $_POST['stroopwafel'];
-  $cookie = unserialize(bakery_mix($payload, 0));
-  $key = variable_get('bakery_key', '');
-  $signature = hash_hmac('sha256', $cookie['data'] . '/' . $cookie['uid'] . '/' . $cookie['timestamp'], $key);
-
   $valid = FALSE;
 
-  if ($signature == $cookie['signature'] && $cookie['timestamp'] + variable_get('bakery_freshness', '3600') >= $_SERVER['REQUEST_TIME']) {
-    $valid = TRUE;
-    $_SESSION['bakery'] = unserialize($cookie['data']);
-    $_SESSION['bakery']['uid'] = $cookie['uid'];
+  if ($payload) {
+    $cookie = unserialize(bakery_mix($payload, 0));
+    $key = variable_get('bakery_key', '');
+    $signature = hash_hmac('sha256', $cookie['data'] . '/' . $cookie['uid'] . '/' . $cookie['timestamp'], $key);
+
+    if ($signature == $cookie['signature'] && $cookie['timestamp'] + variable_get('bakery_freshness', '3600') >= $_SERVER['REQUEST_TIME']) {
+      $valid = TRUE;
+      $_SESSION['bakery'] = unserialize($cookie['data']);
+      $_SESSION['bakery']['uid'] = $cookie['uid'];
+    }
   }
 
   return $valid;
@@ -473,7 +482,7 @@ function bakery_eat_stroopwafel_cookie() {
   }
   else {
     $fields = array();
-    foreach (variable_get('bakery_supported_fields', array()) as $type => $value) {
+    foreach (variable_get('bakery_supported_fields', array('mail' => 'mail', 'name' => 'name')) as $type => $value) {
       if ($value) {
         $fields[$type] = isset($stroopwafel[$type]) ? $stroopwafel[$type] : $account->$type;
       }
