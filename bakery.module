@@ -106,8 +106,9 @@ function bakery_user($op, &$array, &$account, $category = NULL) {
     $payload['data'] = serialize($_SESSION['bakery']);
     $payload['timestamp'] = $_SERVER['REQUEST_TIME'];
     $payload['uid'] = $account->uid;
+    $payload['category'] = $category;
     $payload['signature'] = hash_hmac('sha256', $payload['data'] . '/' . $payload['uid'] .'/'. $payload['timestamp'], $key);
-    $payload = rawurlencode('stroopwafel') .'='. rawurlencode(bakery_mix(serialize($payload), 1));
+    $payload = drupal_query_string_encode(array('stroopwafel' => bakery_mix(serialize($payload), 1)));
     unset($_SESSION['bakery']);
 
     // now update the slaves
@@ -115,7 +116,7 @@ function bakery_user($op, &$array, &$account, $category = NULL) {
     foreach ($slaves as $slave) {
       $result = drupal_http_request($slave .'bakery/update', array('Content-Type' => 'application/x-www-form-urlencoded; charset=utf-8'), 'POST', $payload);
       if ($result->code != 200) {
-        drupal_set_message(t('Error %error for site at %url', array('%error' => $result->error, '%url' => $slave)));
+        drupal_set_message(t('Error %error for site at %url', array('%error' => $result->code .' '. $result->error, '%url' => $slave)));
       }
       else {
         drupal_set_message($result->data);
@@ -141,6 +142,7 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
     case 'user_profile_form':
     case 'user_edit_form':
       if (!variable_get('bakery_is_master', 0) && !user_access('administer bakery')) {
+        $index = key($form);
         if (isset($form['account'])) {
           $form['account']['#access'] = FALSE;
           $form['account']['name']['#access'] = FALSE;
@@ -179,6 +181,11 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
                 if (isset($form[$type][$type])) {
                   $form[$type][$type]['#disabled'] = TRUE;
                   $form[$type][$type]['#description'] .= ' '. t('You can change this setting <a href="!url">at the master site</a>.', array('!url' => $form['_account']['#value']->init));
+                }
+                // profile fields
+                if ($form[$index]['#type'] == 'fieldset' && isset($form[$index][$type])) {
+                  $form[$index][$type]['#disabled'] = TRUE;
+                  $form[$index][$type]['#description'] .= ' '. t('You can change this setting <a href="!url">at the master site</a>.', array('!url' => $form['_account']['#value']->init));
                 }
                 break;
             }
@@ -242,6 +249,12 @@ function bakery_settings() {
   $default['mail'] = 'mail';
   $default['name'] = 'name';
   $options = array('name' => t('username'), 'mail' => t('e-mail'), 'status' => t('status'), 'picture' => t('user picture'), 'language' => t('language'), 'signature' => t('signature'), 'timezone' => t('timezone'));
+  if (module_exists('profile')) {
+    $result = db_query('SELECT * FROM {profile_fields} ORDER BY category, weight');
+    while ($field = db_fetch_object($result)) {
+      $options[$field->name] = check_plain($field->title);
+    }
+  }
   $form['bakery_supported_fields'] = array(
     '#type' => 'checkboxes',
     '#title' => 'Supported profile fields',
@@ -329,8 +342,6 @@ function _bakery_taste_chocolatechip_cookie() {
   if ($cookie) {
     global $user;
 
-    watchdog('bakery', 'This is a valid cookie.');
-  
     // Bake a fresh cookie. Yum.
     _bakery_bake_chocolatechip_cookie($cookie['name'], $cookie['mail'], $cookie['init']);
 
@@ -415,6 +426,7 @@ function bakery_taste_stroopwafel_cookie() {
       $valid = TRUE;
       $_SESSION['bakery'] = unserialize($cookie['data']);
       $_SESSION['bakery']['uid'] = $cookie['uid'];
+      $_SESSION['bakery']['category'] = $cookie['category'];
     }
   }
 
@@ -435,7 +447,6 @@ function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
     $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
     $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['mail'] . '/' . $cookie['timestamp'], $key);
     setcookie('CHOCOLATECHIP', bakery_mix(serialize($cookie), 1), $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''));
-    watchdog('bakery', 'Set single-sign-on cookie.');
   }
 }
 
@@ -487,7 +498,7 @@ function bakery_eat_stroopwafel_cookie() {
         $fields[$type] = isset($stroopwafel[$type]) ? $stroopwafel[$type] : $account->$type;
       }
     }
-    user_save($account, $fields);
+    user_save($account, $fields, $stroopwafel['category']);
     watchdog('bakery', 'user updated name %name_old to %name_new, mail %mail_old to %mail_new.', array('%name_old' => $account->name, '%name_new' => $stroopwafel['name'], '%mail_old' => $account->mail, '%mail_new' => $stroopwafel['mail']));
     $message = t('Successfully updated account on %slave.', array('%slave' => variable_get('site_name', '')));
   }
