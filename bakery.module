@@ -80,8 +80,8 @@ function bakery_perm() {
  */
 function bakery_user($op, &$array, &$account, $category = NULL) {
   if ($op == 'login') {
-    _bakery_bake_chocolatechip_cookie($account->name, $account->mail, url("user/$account->uid/edit", array('absolute' => TRUE)));
     if (variable_get('bakery_is_master', 0)) {
+      _bakery_bake_chocolatechip_cookie($account->name, $account->mail, url("user/$account->uid/edit", array('absolute' => TRUE)));
       _bakery_taste_oatmeal_cookie();
     }
   }
@@ -349,7 +349,7 @@ function _bakery_taste_chocolatechip_cookie() {
       $account = user_load(array('name' => $cookie['name'], 'mail' => $cookie['mail']));
       
       // Create the account if it doesn't exist.
-      if (!$account && !variable_get('bakery_is_master', 0)) {
+      if (!$account && !variable_get('bakery_is_master', 0) && $cookie['master']) {
         $checks = TRUE;
         if (db_result(db_query("SELECT COUNT(*) FROM {users} WHERE uid != %d AND mail != '' AND LOWER(mail) = LOWER('%s')", $user->uid, $cookie['mail'])) > 0) {
           drupal_set_message(t('The e-mail address %email is already registered. <a href="@contact">Please contact the site administrator.</a>', array('%email' => $cookie['mail'], '@contact' => variable_get('bakery_master', 'http://drupal.org/') .'contact')), 'error');
@@ -367,7 +367,7 @@ function _bakery_taste_chocolatechip_cookie() {
             'init' => $cookie['init'],
             'status' => variable_get('user_register', 1),
             'pass' => user_password(),
-            );
+          );
           $account = user_save(new stdClass(), $new);
           $account = user_load($account->uid);
         }
@@ -380,7 +380,7 @@ function _bakery_taste_chocolatechip_cookie() {
 
     return TRUE;
   }
-  
+
   if (!$cookie) {
     // Eat the bad cookie. Burp.
     _bakery_eat_cookie();
@@ -443,6 +443,7 @@ function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
     $cookie['name'] = $name;
     $cookie['mail'] = $mail;
     $cookie['init'] = $init;
+    $cookie['master'] = variable_get('bakery_is_master', 0);
     $cookie['calories'] = 480;
     $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
     $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['mail'] . '/' . $cookie['timestamp'], $key);
