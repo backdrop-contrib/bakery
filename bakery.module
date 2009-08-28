@@ -339,6 +339,7 @@ function _bakery_validate_cookie($type = 'CHOCOLATECHIP') {
 function _bakery_taste_chocolatechip_cookie() {
   $cookie = _bakery_validate_cookie();
 
+  // Valid cookie
   if ($cookie) {
     global $user;
 
@@ -381,10 +382,13 @@ function _bakery_taste_chocolatechip_cookie() {
     return TRUE;
   }
 
-  if (!$cookie) {
-    // Eat the bad cookie. Burp.
+  // Eat the bad cookie. Burp.
+  if ($cookie === FALSE) {
     _bakery_eat_cookie();
+  }
 
+  // No cookie or invalid cookie
+  if (!$cookie) {
     global $user;
     // we log out users that have lost their SSO cookie, with the exception of
     // UID 1.
@@ -394,7 +398,7 @@ function _bakery_taste_chocolatechip_cookie() {
       user_logout();
     }
   }
-  
+
   return FALSE;
 }
 
