@@ -53,6 +53,9 @@ g) Supported profile fields: Any fields that you like to import. Name
    and Mail are always imported. You can only import fields that are
    exported by the master. You can chose to ignore some of them, though.
 
+h) You need to disable the user login block on the slave site. Log-ins
+   are only permitted through the master server.
+
 Additional slave sites can be created like sub.example.com.
 
 Caveats
