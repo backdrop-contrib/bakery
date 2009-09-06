@@ -126,13 +126,9 @@ function bakery_user($op, &$array, &$account, $category = NULL) {
 }
 
 /**
- * Implementation of hook_boot().
- *
- * We must use hook_boot instead of hook_init in order to stay ahead of normal
- * page caching. TODO: add a session.inc replacement so that we can run with
- * aggressive page caching also.
+ * Implementation of hook_init().
  */
-function bakery_boot() {
+function bakery_init() {
   _bakery_taste_chocolatechip_cookie();
 }
 
