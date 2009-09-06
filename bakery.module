@@ -362,11 +362,12 @@ function _bakery_taste_chocolatechip_cookie() {
         }
 
         if ($checks) {
+          // Status = 0 because we never want accounts started as "blocked".
           $new = array(
             'name' => $cookie['name'],
             'mail' => $cookie['mail'],
             'init' => $cookie['init'],
-            'status' => variable_get('user_register', 1),
+            'status' => 0, 
             'pass' => user_password(),
           );
           $account = user_save(new stdClass(), $new);
