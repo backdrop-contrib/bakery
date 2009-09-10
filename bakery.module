@@ -159,19 +159,19 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
                 if (isset($form['picture'])) {
                   $form['picture']['picture_delete']['#access'] = FALSE;
                   $form['picture']['picture_upload']['#access'] = FALSE;
-                  $form['picture']['#description'] .= ' '. t('You can change the image <a href="!url">at the master site</a>.', array('!url' => $form['_account']['#value']->init));
+                  $form['picture']['#description'] .= ' '. t('You can change the image <a href="!url">at the master site</a>.', array('!url' => check_url($form['_account']['#value']->init)));
                 }
                 break;
               case 'language':
                 if (isset($form['locale'][$type])) {
                   $form['locale'][$type]['#disabled'] = TRUE;
-                  $form['locale'][$type]['#description'] .= ' '. t('You can change the language setting <a href="!url">at the master site</a>.', array('!url' => $form['_account']['#value']->init));
+                  $form['locale'][$type]['#description'] .= ' '. t('You can change the language setting <a href="!url">at the master site</a>.', array('!url' => check_url($form['_account']['#value']->init)));
                 }
                 break;
               case 'signature':
                 if (isset($form['signature_settings'][$type])) {
                   $form['signature_settings'][$type]['#disabled'] = TRUE;
-                  $form['signature_settings'][$type]['#description'] .= ' '. t('You can change the signature <a href="!url">at the master site</a>.', array('!url' => $form['_account']['#value']->init));
+                  $form['signature_settings'][$type]['#description'] .= ' '. t('You can change the signature <a href="!url">at the master site</a>.', array('!url' => check_url($form['_account']['#value']->init)));
                 }
                 break;
               default:
@@ -180,12 +180,12 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
                 }
                 if (isset($form[$type][$type])) {
                   $form[$type][$type]['#disabled'] = TRUE;
-                  $form[$type][$type]['#description'] .= ' '. t('You can change this setting <a href="!url">at the master site</a>.', array('!url' => $form['_account']['#value']->init));
+                  $form[$type][$type]['#description'] .= ' '. t('You can change this setting <a href="!url">at the master site</a>.', array('!url' => check_url($form['_account']['#value']->init)));
                 }
                 // profile fields
                 if ($form[$index]['#type'] == 'fieldset' && isset($form[$index][$type])) {
                   $form[$index][$type]['#disabled'] = TRUE;
-                  $form[$index][$type]['#description'] .= ' '. t('You can change this setting <a href="!url">at the master site</a>.', array('!url' => $form['_account']['#value']->init));
+                  $form[$index][$type]['#description'] .= ' '. t('You can change this setting <a href="!url">at the master site</a>.', array('!url' => check_url($form['_account']['#value']->init)));
                 }
                 break;
             }
