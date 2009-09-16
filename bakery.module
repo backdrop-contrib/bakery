@@ -395,8 +395,7 @@ function _bakery_taste_chocolatechip_cookie() {
     // UID 1.
     if ($user->uid > 1) {
       watchdog('bakery', 'Logging out the user with the bad cookie.');
-      require_once drupal_get_path('module', 'user') . '/user.pages.inc';
-      user_logout();
+      bakery_user_logout();
     }
   }
 
@@ -610,5 +609,31 @@ function bakery_user_authenticate_finalize(&$edit) {
   // Regenerate the session ID to prevent against session fixation attacks.
   # sess_regenerate();
   user_module_invoke('login', $edit, $user);
+}
+
+/**
+ * Custom logout function modified from user_logout.
+ *
+ */
+function bakery_user_logout() {
+  global $user;
+
+  watchdog('user', 'Session closed for %name.', array('%name' => $user->name));
+
+  // Destroy the current session:
+  session_destroy();
+  module_invoke_all('user', 'logout', NULL, $user);
+
+  // Load the anonymous user
+  $user = drupal_anonymous_user();
+
+  // We want to redirect the user to his original destination.
+  $get = $_GET;
+  $destination = $get['q'];
+  unset($get['q']);
+  // We append a GET parameter so that the browser reloads the
+  // page.
+  $get['no_cache'] = time();
+  drupal_goto($destination, $get, NULL, 307);
 }
 
