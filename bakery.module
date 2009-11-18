@@ -130,6 +130,17 @@ function bakery_user($op, &$array, &$account, $category = NULL) {
       }
     }
   }
+  else if ($op == 'view' && !variable_get('bakery_is_master', 0)) {
+    if (substr($account->init, 0, strlen(variable_get('bakery_master', 'http://drupal.org/'))) == variable_get('bakery_master', 'http://drupal.org/')) {
+      $account->content['summary']['master_profile'] = array(
+        '#type' => 'item',
+        '#title' => t('Master profile'),
+        '#value' => l('Profile on master site', substr($account->init, 0, strlen($account->init) - 5)),
+        '#attributes' => array('class' => 'og_groups'),
+        '#access' => user_access('access user profiles'),
+      );
+    }
+  }
 }
 
 /**
