@@ -162,6 +162,7 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
       if (!variable_get('bakery_is_master', 0) && !user_access('administer users')) {
         $index = key($form);
         if (isset($form['account'])) {
+          drupal_set_message(t('You can change the name, mail, and password <a href="!url">at the master site</a>.', array('!url' => check_url($form['_account']['#value']->init))));
           $form['account']['#access'] = FALSE;
           $form['account']['name']['#access'] = FALSE;
           $form['account']['pass']['#access'] = FALSE;
