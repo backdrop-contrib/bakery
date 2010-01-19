@@ -529,14 +529,14 @@ function bakery_bake_oatmeal_cookie() {
 
   $key = variable_get('bakery_key', '');
   if (!empty($key)) {
-    global $base_root;
+    global $base_url;
     $cookie = array();
     $cookie['name'] = 'login';
     $cookie['mail'] = 'no_mail';
     $destination = drupal_get_destination();
     $destination = substr($destination, strpos($destination, '=') + 1);
     $destination = ($destination == 'bakery') ? '' : urldecode($destination);
-    $cookie['destination'] = $base_root .'/'. $destination;
+    $cookie['destination'] = $base_url .'/'. $destination;
     $cookie['calories'] = 320;
     $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
     $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['mail'] . '/' . $cookie['timestamp'], $key);
