@@ -127,6 +127,7 @@ function bakery_user($op, &$array, &$account, $category = NULL) {
       }
       else {
         drupal_set_message($result->data);
+        // TODO: Roll back the change.
       }
     }
   }
@@ -570,9 +571,16 @@ function bakery_eat_stroopwafel_cookie() {
         $fields[$type] = isset($stroopwafel[$type]) ? $stroopwafel[$type] : $account->$type;
       }
     }
-    user_save($account, $fields, $stroopwafel['category']);
-    watchdog('bakery', 'user updated name %name_old to %name_new, mail %mail_old to %mail_new.', array('%name_old' => $account->name, '%name_new' => $stroopwafel['name'], '%mail_old' => $account->mail, '%mail_new' => $stroopwafel['mail']));
-    $message = t('Successfully updated account on %slave.', array('%slave' => variable_get('site_name', '')));
+    $status = user_save($account, $fields, $stroopwafel['category']);
+    if ($status === FALSE) {
+      watchdog('bakery', 'User update from name %name_old to %name_new, mail %mail_old to %mail_new failed.', array('%name_old' => $account->name, '%name_new' => $stroopwafel['name'], '%mail_old' => $account->mail, '%mail_new' => $stroopwafel['mail']), WATCHDOG_ERROR);
+      $message = t('There was a problem updating your account on %slave. Please contact the administrator.', array('%slave' => variable_get('site_name', '')));
+      header('HTTP/1.1 409 Conflict');
+    }
+    else {
+      watchdog('bakery', 'user updated name %name_old to %name_new, mail %mail_old to %mail_new.', array('%name_old' => $account->name, '%name_new' => $stroopwafel['name'], '%mail_old' => $account->mail, '%mail_new' => $stroopwafel['mail']));
+      $message = t('Successfully updated account on %slave.', array('%slave' => variable_get('site_name', '')));
+    }
   }
 
   module_invoke_all('exit');
