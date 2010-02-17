@@ -136,7 +136,7 @@ function bakery_user($op, &$array, &$account, $category = NULL) {
       $account->content['summary']['master_profile'] = array(
         '#type' => 'item',
         '#title' => t('Master profile'),
-        '#value' => l('Profile on master site', substr($account->init, 0, strlen($account->init) - 5)),
+        '#value' => l(t('Profile on master site'), substr($account->init, 0, strlen($account->init) - 5)),
         '#attributes' => array('class' => 'og_groups'),
         '#access' => user_access('access user profiles'),
       );
