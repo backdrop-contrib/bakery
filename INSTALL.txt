@@ -1,6 +1,8 @@
 How to install bakery?
 ======================
 
+Prerequisites: This module requires the mcrypt PHP module.
+
 You need two Drupal sites, e.g. example.com and sub.example.com.  It
 is ideal if you can copy the user base of the main site to the slave
 site or if sub.example.com is a new site.
