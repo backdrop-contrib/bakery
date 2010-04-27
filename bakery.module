@@ -68,8 +68,8 @@ function bakery_menu_alter(&$callbacks) {
  */
 function bakery_translated_menu_link_alter(&$item, $map) {
   if ($item['href'] == 'bakery') {
-    $destination_array = drupal_get_destination();
-    $item['localized_options']['query'] = $destination_array['destination'];
+    $destination = drupal_get_destination();
+    $item['localized_options']['query'] = $destination;
   }
 }
 
