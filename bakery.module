@@ -486,9 +486,9 @@ function _bakery_taste_chocolatechip_cookie() {
         // remains in sync.
 
         // Make sure that there aren't any OTHER accounts with this init already.
-        $result = db_query("SELECT COUNT(*) FROM {users} WHERE init = :init", array(':init' => $cookie['init']));
-        $record = $result->fetchObject();
-        if ($record['count(*)'] == 0) {
+        $count = db_select('users', 'u')->fields('u', array('uid'))->condition('init', $cookie['init'], '=')
+          ->countQuery()->execute()->fetchField();
+        if ($count == 0) {
           db_update('users')->fields(array('init' => $cookie['init']))
             ->condition('uid', $account->uid)
             ->execute();
@@ -544,7 +544,7 @@ function _bakery_taste_oatmeal_cookie() {
  * Validate update request.
  */
 function bakery_taste_stroopwafel_cookie() {
-  $payload = $_POST['stroopwafel'];
+  $payload = isset($_POST['stroopwafel']) ? $_POST['stroopwafel'] : FALSE;
   $valid = FALSE;
 
   if ($payload) {
@@ -839,7 +839,7 @@ function bakery_uncrumble($form, &$form_state) {
 
   $help = '';
 
-  $count = db_select('users', 'u')->fields('u', array('uid'))->condition('init', $cookie, '=')
+  $count = db_select('users', 'u')->fields('u', array('uid'))->condition('init', $cookie['init'], '=')
     ->countQuery()->execute()->fetchField();
   if ($count > 1) {
     drupal_set_message(t('Multiple accounts are associated with your master account. This must be fixed manually. <a href="@contact">Please contact the site administrator.</a>', array('%email' => $cookie['mail'], '@contact' => variable_get('bakery_master', 'http://drupal.org/') .'contact')));
@@ -864,7 +864,7 @@ function bakery_uncrumble($form, &$form_state) {
     $form['name']['#description'] = t('Will change to %new.', array('%new' => $cookie['name']));
   }
 
-  $form['help'] = array('#type' => 'markup', '#weight' => -10, '#value' => $help);
+  $form['help'] = array('#weight' => -10, '#markup' => $help);
 
   return $form;
 }
@@ -873,16 +873,14 @@ function bakery_uncrumble($form, &$form_state) {
  * Validation for bakery_uncrumble form.
  */
 function bakery_uncrumble_validate($form, &$form_state) {
+  // Have to include password.inc for user_check_password().
+  require_once(DRUPAL_ROOT . '/includes/password.inc');
   // We are ignoring blocked status on purpose. The user is being repaired, not logged in.
-  // @todo I don't know if entity_load() will hash the password.
-  $account = user_load_multiple(array('name' => $form_state['values']['name'], 'pass' => $form_state['values']['pass']));
-  if (is_array($account)) {
-    $account = reset($account);
-  }
-  if (!($account && $account->uid)) {
+  $account = user_load_by_name($form_state['values']['name']);
+  if (!($account && $account->uid) || !user_check_password($form_state['values']['pass'], $account)) {
     watchdog('bakery', 'Login attempt failed for %user while running uncrumble.', array('%user' => $form_state['values']['name']));
     // Can't pretend that it was the "username or password" so let's be helpful instead.
-    form_set_error('pass', t('Sorry, unrecognized password. If you have forgotten your %site password, please <a href="@contact">contact the site administrator.</a>', array('%site' => variable_get('site_name', 'Drupal'), '@contact' => variable_get('bakery_master', 'http://drupal.org/') .'contact')), 'error');
+    form_set_error('pass', t('Sorry, unrecognized password. If you have forgotten your %site password, please <a href="@contact">contact the site administrator.</a>', array('%site' => variable_get('site_name', 'Drupal'), '@contact' => variable_get('bakery_master', 'http://drupal.org/') .'contact')));
   }
   else {
     $form_state['bakery_uncrumble_account'] = $account;
