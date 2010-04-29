@@ -21,7 +21,7 @@ On both domains:
 3) You install bakery.module.
 
 
-On example.com/admin/setting/bakery you chose
+On example.com/admin/config/system/bakery you chose
 
 a) Master site: yes
 
@@ -39,7 +39,7 @@ g) Supported profile fields: Any fields that you like to export. Name
    and Mail are always exported.
 
 
-On sub.example.com/admin/setting/bakery you chose
+On sub.example.com/admin/config/system/bakery you chose
 
 a) Master site: no
 
