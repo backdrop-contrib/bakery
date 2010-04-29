@@ -341,8 +341,20 @@ function bakery_settings_submit($form, &$form_state) {
       drupal_write_record('url_alias', $alias);
     }
   }
+  
+  // Updating of data on slave sites will not work unless the url of the master site has a trailing slash.
+  // We now remove the trailing slash (if present) and concatenate with a new trailing slash.
+  $form_state['values']['bakery_master'] = trim($form_state['values']['bakery_master'], '/') .'/';
+  
+  // The list of slave sites needs transforming from a text string into array for storage.
+  // Also, redirection after login will only work if there is a trailing slash after each entry.
   if ($form_state['values']['bakery_slaves']) {
+    // Transform the text string into an array.
     $form_state['values']['bakery_slaves'] = explode("\n", trim(str_replace("\r", '', $form_state['values']['bakery_slaves'])));
+    // For each entry, remove the trailing slash (if present) and concatenate with a new trailing slash.
+    foreach ($form_state['values']['bakery_slaves'] as &$slave) {
+      $slave = trim($slave, '/') .'/';
+    }
   }
   else {
     $form_state['values']['bakery_slaves'] = array();
