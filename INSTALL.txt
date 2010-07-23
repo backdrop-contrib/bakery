@@ -47,7 +47,8 @@ b) Master site: http://example.com/
 
 c) Slave sites: empty
 
-d) Freshness: the default is fine
+d) Seconds of age before a cookie is old: you should use a number similar 
+   to the value in the settings.php on the parent site.
 
 e) Key: an alphanumeric string, longer is better (the same string as
        on example.com)
