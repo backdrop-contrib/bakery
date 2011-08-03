@@ -754,8 +754,8 @@ function bakery_login_return() {
     // Valid cookie, now destroy it.
     _bakery_eat_cookie('OATMEAL');
 
-    $errors = $cookie['data']['errors'];
-    if (!empty($errors)) {
+    if (!empty($cookie['data']['errors'])) {
+      $errors = $cookie['data']['errors'];
       if ($errors['incorrect-credentials']) {
         drupal_set_message(t('Sorry, unrecognized username or password.'), 'error');
       }
