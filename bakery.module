@@ -248,7 +248,7 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
         }
       }
       break;
-    case 'user_register':
+    case 'user_register_form':
       // Provide register ability on the slave sites.
       if (!variable_get('bakery_is_master', FALSE)) {
         if (arg(0) == 'admin') {
@@ -379,18 +379,14 @@ function _bakery_reset_submit($form, &$form_state) {
 function _bakery_register_submit($form, &$form_state) {
   // Create an array of fields to send to the master. We need these four fields.
   $allowed = array('name', 'mail', 'pass', 'timezone');
-  if (module_exists('profile')) {
-    // Now figure out profile field names that are visible on the registration form.
-    $field_names = db_query("SELECT name FROM {profile_fields} WHERE register = 1");
-    while ($field_name = db_fetch_object($field_names)) {
-      $allowed[] = $field_name->name;
-    }
-  }
+
   foreach ($form_state['values'] as $key => $value) {
     if (!in_array($key, $allowed)) {
       unset($form_state['values'][$key]);
     }
   }
+  // Remove unneeded values.
+  form_state_values_clean($form_state);
   // Save values to cookie.
   $data = $form_state['values'];
 
@@ -656,7 +652,7 @@ function bakery_register_return() {
         // Notify the user that they need to validate their email.
         _user_mail_notify('register_no_approval_required', $account);
         unset($_SESSION['bakery']['register']);
-        drupal_set_message(t('Your password and further instructions have been sent to your e-mail address.'));
+        drupal_set_message(t('A welcome message with further instructions has been sent to your e-mail address.'));
       }
       if (!empty($errors['name'])) {
         drupal_set_message(t('Name is already taken.'), 'error');
