@@ -1339,11 +1339,13 @@ function bakery_mix($text, $crypt) {
 
   mcrypt_generic_init($td, $key, $iv);
 
-  if($crypt) {
-    $encrypted_data = mcrypt_generic($td, $text);
+  if ($crypt) {
+    // Base64 encode the encrypted text because the result may contain
+    // characters that are not stored consistently in cookies.
+    $encrypted_data = base64_encode(mcrypt_generic($td, $text));
   }
   else {
-    $encrypted_data = mdecrypt_generic($td, $text);
+    $encrypted_data = mdecrypt_generic($td, base64_decode($text));
   }
 
   mcrypt_generic_deinit($td);
