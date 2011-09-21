@@ -95,7 +95,12 @@ function bakery_translated_menu_link_alter(&$item, $map) {
 function bakery_permission() {
   return array(
     'administer bakery' => array(
-      'title' => 'Administer Bakery',
+      'title' => t('Administer Bakery'),
+    ),
+    'bypass bakery' => array(
+      'title' => t('Bypass Bakery'),
+      'description' => t('Bypass SSO enforcement policy and allow a user to log in without a valid SSO cookie'),
+      'restrict access' => TRUE,
     ),
   );
 }
@@ -957,11 +962,15 @@ function _bakery_taste_chocolatechip_cookie() {
   // No cookie or invalid cookie
   if (!$cookie) {
     global $user;
-    // we log out users that have lost their SSO cookie, with the exception of
-    // UID 1.
+    // Log out users that have lost their SSO cookie, with the exception of
+    // UID 1 and any applied roles with permission to bypass.
     if ($user->uid > 1) {
-      watchdog('bakery', 'Logging out the user with the bad cookie.');
-      _bakery_user_logout();
+      // This runs for logged in users. Those folks are going to get a full bootstrap anyway so this isn't a problem.
+      drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+      if (!user_access('bypass bakery')) {
+        watchdog('bakery', 'Logging out the user with the bad cookie.');
+        _bakery_user_logout();
+      }
     }
   }
 
@@ -1421,9 +1430,6 @@ function bakery_user_authenticate_finalize(&$edit) {
  * Custom logout function modified from user_logout.
  */
 function _bakery_user_logout() {
-  // Include common.inc here because we may be in an early boot phase and we
-  // need the url() function.
-  require_once 'includes/common.inc';
   global $user;
 
   watchdog('user', 'Session closed for %name.', array('%name' => $user->name));
