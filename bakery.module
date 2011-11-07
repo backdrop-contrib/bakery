@@ -118,9 +118,16 @@ function bakery_user_login(&$edit, $account) {
  * Implements hook_user_logout().
  */
 function bakery_user_logout($account) {
-  // eat SSO cookie
-  _bakery_eat_cookie();
-  // eat session cookie
+  global $user;
+  $cookie = _bakery_validate_cookie();
+
+  // Only delete the SSO cookie if the name is the same in case there was an
+  // existing session that's being logged out and SSO cookie is for new session.
+  if ($user->uid && $cookie && $cookie['name'] === $user->name) {
+    _bakery_eat_cookie();
+  }
+
+  // Destroy session cookie.
   _bakery_eat_cookie(session_name());
 }
 
@@ -822,6 +829,13 @@ function _bakery_taste_chocolatechip_cookie() {
   if ($cookie) {
     $destroy_cookie = FALSE;
     global $user;
+
+    // Detect SSO cookie mismatch if there is already a valid session for user.
+    if ($user->uid && $cookie['name'] !== $user->name) {
+      // The SSO cookie doesn't match the existing session so force a logout.
+      drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+      _bakery_user_logout();
+    }
 
     // Bake a fresh cookie. Yum.
     _bakery_bake_chocolatechip_cookie($cookie['name'], $cookie['mail'], $cookie['init']);
