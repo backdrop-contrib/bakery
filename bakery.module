@@ -183,14 +183,14 @@ function bakery_user_update(&$edit, $account, $category) {
 /**
  * Implements hook_user_view().
  */
-function bakery_user_view($account, $view_mode) {
+function bakery_user_view($account, $view_mode, $langcode) {
   if (!variable_get('bakery_is_master', 0)) {
-    if (substr($account->init, 0, strlen(variable_get('bakery_master', 'http://drupal.org/'))) == variable_get('bakery_master', 'http://drupal.org/')) {
+    $master = variable_get('bakery_master', 'http://drupal.org/');
+    if (substr($account->init, 0, strlen($master)) == $master) {
       $account->content['summary']['master_profile'] = array(
-        '#type' => 'item',
-        '#title' => t('Master profile'),
-        '#value' => l(t('Profile on master site'), substr($account->init, 0, strlen($account->init) - 5)),
-        '#attributes' => array('class' => 'og_groups'),
+        '#type' => 'user_profile_item',
+        '#title' => t('Primary profile'),
+        '#markup' => l(t('Profile on primary site'), substr($account->init, 0, strlen($account->init) - 5)), // Take everything up to '/edit'.
         '#access' => user_access('access user profiles'),
       );
     }
