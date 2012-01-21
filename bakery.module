@@ -109,7 +109,7 @@ function bakery_permission() {
  * Implements hook_user_login().
  */
 function bakery_user_login(&$edit, $account) {
-  if (variable_get('bakery_is_master', 0)) {
+  if (variable_get('bakery_is_master', 0) && isset($account->uid)) {
     _bakery_bake_chocolatechip_cookie($account->name, $account->mail, url("user/$account->uid/edit", array('absolute' => TRUE)));
   }
 }
@@ -310,10 +310,6 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
         $form['#validate'] = array_diff($form['#validate'], array('user_login_authenticate_validate', 'user_login_final_validate'));
         // Also replace the submit handler with our own to set a redirect cookie.
         $form['#submit'] = array('_bakery_login_submit');
-      }
-      elseif (arg(0) == 'bakery') {
-        // Replace two of the validators on the master's special Bakery login.
-        $form['#validate'] = array_diff($form['#validate'], array('user_login_authenticate_validate', 'user_login_final_validate'));
       }
       break;
     default:
@@ -698,17 +694,16 @@ function bakery_login() {
     // First see if the user_login form validation has any errors for them.
     $name = trim($cookie['data']['name']);
     $pass = trim($cookie['data']['pass']);
-    // Execute the login form.
+    // Execute the login form which checks username, password, status and flood.
     $form_state = array();
     $form_state['values'] = $cookie['data'];
-    drupal_execute('user_login', $form_state);
+    drupal_form_submit('user_login', $form_state);
     $errors = form_get_errors();
 
     if (empty($errors)) {
       // Check if account credentials are correct.
-      $account = user_load_multiple(array(), array('name' => $name, 'pass' => $pass));
-      $account = reset($account);
-      if ($account->uid) {
+      $account = user_load_by_name($name);
+      if (isset($account->uid)) {
         // Check if the mail is denied.
         if (drupal_is_denied('user', $account->mail)) {
           $errors['name'] = t('The name %name is registered using a reserved e-mail address and therefore could not be logged in.', array('%name' => $name));
@@ -730,8 +725,8 @@ function bakery_login() {
     if (!empty($errors)) {
       // Report failed login.
       watchdog('user', 'Login attempt failed for %user.', array('%user' => $name));
-     // Clear the messages on the master's session, since they were set during
-      // drupal_execute() and will be displayed out of context.
+      // Clear the messages on the master's session, since they were set during
+      // drupal_form_submit() and will be displayed out of context.
       drupal_get_messages();
     }
     // Bake a new cookie for validation on the slave.
@@ -1634,7 +1629,8 @@ function bakery_uncrumble_submit($form, &$form_state) {
  *   The corresponding UID on the slave site.
  */
 function _bakery_save_slave_uid($account, $slave, $slave_uid) {
-  if (variable_get('bakery_is_master', 0) && !empty($slave_uid) && in_array($slave, variable_get('bakery_slaves', array())) && !db_result(db_query_range("SELECT 1 FROM {bakery_user} WHERE uid = %d AND slave = '%s'", $account->uid, $slave, 0, 1))) {
+  $slave_user_exists = db_query_range("SELECT 1 FROM {bakery_user} WHERE uid = :uid AND slave = :slave", 0, 1, array(':uid' => $account->uid, ':slave' => $slave))->fetchField();
+  if (variable_get('bakery_is_master', 0) && !empty($slave_uid) && in_array($slave, variable_get('bakery_slaves', array())) && !$slave_user_exists) {
     $row = array(
       'uid' => $account->uid,
       'slave' => $slave,
