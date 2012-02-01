@@ -948,15 +948,18 @@ function _bakery_taste_chocolatechip_cookie() {
         // infinite redirects (with infinite failed login messages).
         $login = bakery_user_external_login($account);
         if ($login) {
+          // Use a copy of $_GET so the unset() below doesn't cause errors if
+          // 'q' is expected later on in the request.
+          $get = $_GET;
           if (isset($_REQUEST['destination'])) {
             $destination = $_REQUEST['destination'];
           }
           else {
-            // Use $_GET here to retrieve the original path in source form.
-            $destination = isset($_GET['q']) ? $_GET['q'] : '';
-            unset($_GET['q']);
+            // Retrieve the original path in source form.
+            $destination = isset($get['q']) ? $get['q'] : '';
+            unset($get['q']);
           }
-          drupal_goto($destination, array('query' => $_GET));
+          drupal_goto($destination, array('query' => $get));
         }
         else {
           $destroy_cookie = TRUE;
