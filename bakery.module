@@ -1587,7 +1587,7 @@ function bakery_uncrumble($form, &$form_state) {
  */
 function bakery_uncrumble_validate($form, &$form_state) {
   // Have to include password.inc for user_check_password().
-  require_once(DRUPAL_ROOT . '/includes/password.inc');
+  require_once DRUPAL_ROOT . '/' . variable_get('password_inc', 'includes/password.inc');
   // We are ignoring blocked status on purpose. The user is being repaired, not logged in.
   $account = user_load_by_name($form_state['values']['name']);
   if (!($account && $account->uid) || !user_check_password($form_state['values']['pass'], $account)) {
