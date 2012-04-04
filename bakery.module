@@ -72,7 +72,7 @@ function bakery_menu() {
       'access arguments' => array('administer users'),
       'page callback' => 'drupal_get_form',
       'page arguments' => array('bakery_pull_form'),
-      'type' => MENU_NORMAL_ITEM,     
+      'type' => MENU_NORMAL_ITEM,
     );
   }
 
@@ -433,7 +433,6 @@ function _bakery_login_submit($form, &$form_state) {
   }
   // Create cookie and redirect to master.
   bakery_bake_oatmeal_cookie($data['name'], $data);
-  unset($_REQUEST['destination']);
   unset($_GET['destination']);
   drupal_goto(variable_get('bakery_master', 'http://drupal.org/') . 'bakery/login');
 }
@@ -948,15 +947,12 @@ function _bakery_taste_chocolatechip_cookie() {
         // infinite redirects (with infinite failed login messages).
         $login = bakery_user_external_login($account);
         if ($login) {
-          if (isset($_REQUEST['destination'])) {
-            $destination = $_REQUEST['destination'];
-          }
-          else {
-            // Use $_GET here to retrieve the original path in source form.
-            $destination = isset($_GET['q']) ? $_GET['q'] : '';
-            unset($_GET['q']);
-          }
-          drupal_goto($destination, array('query' => $_GET));
+          // If an anonymous user has just been logged in, trigger a 'refresh'
+          // of the current page, ensuring that drupal_goto() does not override
+          // the current page with the destination query.
+          $query = drupal_get_query_parameters();
+          unset($_GET['destination']);
+          drupal_goto(current_path(), array('query' => $query));
         }
         else {
           $destroy_cookie = TRUE;
