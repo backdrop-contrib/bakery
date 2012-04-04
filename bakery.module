@@ -231,7 +231,7 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
                 if (isset($form['picture'])) {
                   $form['picture']['picture_delete']['#access'] = FALSE;
                   $form['picture']['picture_upload']['#access'] = FALSE;
-                  $form['picture']['#description'] .= ' '. t('You can change the image <a href="!url">at the master site</a>.', array('!url' => check_url($form['#user']->init)));
+                  $form['picture']['#description'] = t('You can change the image <a href="!url">at the master site</a>.', array('!url' => check_url($form['#user']->init)));
                 }
                 break;
               case 'language':
