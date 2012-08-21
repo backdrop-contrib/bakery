@@ -518,8 +518,11 @@ function bakery_settings($form, &$form_state) {
 
 function bakery_settings_submit($form, &$form_state) {
   // Rebuild the menu because the router items are based on the selection of
-  // the master site.
-  menu_rebuild();
+  // the master site. (Rebuilding it immediately here would be too early,
+  // because the 'bakery_is_master' variable doesn't get set until the next
+  // submit handler runs. So we trigger a rebuild on the next page request
+  // instead.)
+  variable_set('menu_rebuild_needed', TRUE);
 
   // Updating of data on slave sites will not work unless the url of the master site has a trailing slash.
   // We now remove the trailing slash (if present) and concatenate with a new trailing slash.
