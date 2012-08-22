@@ -761,7 +761,7 @@ function bakery_login_return() {
 
     if (!empty($cookie['data']['errors'])) {
       $errors = $cookie['data']['errors'];
-      if ($errors['incorrect-credentials']) {
+      if (!empty($errors['incorrect-credentials'])) {
         drupal_set_message(t('Sorry, unrecognized username or password.'), 'error');
       }
       elseif ($errors['name']) {
