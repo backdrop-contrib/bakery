@@ -546,38 +546,40 @@ function bakery_settings_submit($form, &$form_state) {
  * Special Bakery register callback registers the user and returns to slave.
  */
 function bakery_register() {
-  $cookie = _bakery_validate_cookie('OATMEAL');
+  $cookie = bakery_taste_oatmeal_cookie();
 
   if ($cookie) {
     // Valid cookie.
+    // Destroy the current oatmeal cookie, we'll set a new one when we return to the slave.
+    _bakery_eat_cookie('OATMEAL');
+
     if (variable_get('user_register', 1)) {
       // Users are allowed to register.
-
-      // Validate and save any errors into an array of arguments to send back.
-      $get_arguments = array();
+      $data = array();
+      // Save errors.
+      $errors = array();
       $name = trim($cookie['data']['name']);
       $mail = trim($cookie['data']['mail']);
 
       // Check if user exists with same email.
       $account = user_load_by_mail($mail);
       if ($account) {
-        $get_arguments['mail'] = 1;
+        $errors['mail'] = 1;
       }
       else {
         // Check username.
         $account = user_load_by_name($name);
         if ($account) {
-          $get_arguments['name'] = 1;
+          $errors['name'] = 1;
         }
       }
     }
     else {
       watchdog('bakery', 'Master Bakery site user registration is disabled but users are trying to register from a subsite.', array(), WATCHDOG_ERROR);
-      $get_arguments['register'] = 1;
+      $errors['register'] = 1;
     }
 
-    // Any $get_arguments set so far would mean there was an error.
-    if (empty($get_arguments)) {
+    if (empty($errors)) {
       // Create user.
       $userinfo = $cookie['data'];
 
@@ -595,6 +597,9 @@ function bakery_register() {
       $userinfo['status'] = 1;
       $userinfo['authname_bakery'] = $name;
       $account = user_save('', $userinfo);
+      // Set some info to return to the slave.
+      $data['uid'] = $account->uid;
+      $data['mail'] = $mail;
       watchdog('user', 'New external user: %name using module bakery from slave !slave.', array('%name' => $account->name, '!slave' => $cookie['slave']), WATCHDOG_NOTICE, l(t('edit'), 'user/'. $account->uid .'/edit'));
 
       // Redirect to slave.
@@ -602,12 +607,11 @@ function bakery_register() {
         // Create identification cookie and log user in.
         _bakery_bake_chocolatechip_cookie($account->name, $account->mail, url("user/$account->uid/edit", array('absolute' => TRUE)));
         bakery_user_external_login($account);
-
-        $get_arguments['success'] = 1;
       }
       else {
-        $get_arguments['validate'] = 1;
-        $url = $cookie['slave'] . '/' . $cookie['destination'];
+        // The user needs to validate their email, redirect back to slave to
+        // inform them.
+        $errors['validate'] = 1;
       }
     }
     else {
@@ -615,14 +619,12 @@ function bakery_register() {
       session_destroy();
     }
 
-    // Destroy the redirect cookie.
-    _bakery_eat_cookie('OATMEAL');
-    // Include a hashed value so the slave can validate the request.
-    $key = variable_get('bakery_key', '');
-    $get_arguments['hash'] = hash_hmac('sha256', $cookie['slave'], $key);
-    $url = $cookie['slave'] . '/' . $cookie['destination'];
     // Redirect back to custom Bakery callback on slave.
-    drupal_goto($url, array('query' => drupal_http_build_query($get_arguments)));
+    $data['errors'] = $errors;
+    $data['name'] = $name;
+    // Bake a new cookie for validation on the slave.
+    bakery_bake_oatmeal_cookie($name, $data);
+    drupal_goto($cookie['slave'] . 'bakery');
   }
   // Invalid request.
   drupal_access_denied();
