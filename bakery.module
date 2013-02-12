@@ -151,15 +151,19 @@ function bakery_user_presave(&$edit, $account, $category) {
  * Implements hook_user_update().
  */
 function bakery_user_update(&$edit, $account, $category) {
+  global $user;
   // We need to push changes.
   if (variable_get('bakery_is_master', 0) && isset($_SESSION['bakery'])) {
+    $type = 'stroopwafel';
     $key = variable_get('bakery_key', '');
     $payload['data'] = serialize($_SESSION['bakery']);
     $payload['timestamp'] = $_SERVER['REQUEST_TIME'];
     $payload['uid'] = $account->uid;
     $payload['category'] = $category;
-    $payload['signature'] = hash_hmac('sha256', $payload['data'] . '/' . $payload['uid'] .'/'. $payload['timestamp'], $key);
-    $payload = drupal_http_build_query(array('stroopwafel' => bakery_mix(serialize($payload), 1)));
+    $payload['type'] = $type;
+    $data = bakery_bake_data($payload);
+    // Respond with encrypted and signed account information.
+    $payload = drupal_http_build_query(array($type => $data));
     unset($_SESSION['bakery']);
     // now update the slaves
     $slaves = variable_get('bakery_slaves', array());
@@ -177,6 +181,11 @@ function bakery_user_update(&$edit, $account, $category) {
         drupal_set_message($result->data);
         // TODO: Roll back the change.
       }
+    }
+    if ($user->uid === $account->uid) {
+      // Rebake SSO cookie so user stays authenticated.
+      $init = _bakery_init_field($account->uid);
+      _bakery_bake_chocolatechip_cookie($account->name, $account->mail, $init);
     }
   }
 }
@@ -354,14 +363,16 @@ function _bakery_reset_submit($form, &$form_state) {
   // against forgery.
   $account = user_load(arg(2));
   // If they have not logged in before we need to update the master site.
-  if ($account->login == 0) {
+  if ($account->login === 0) {
+    $type = 'thinmint';
     $payload = array();
     $payload['name'] = $account->name;
     $payload['slave'] = rtrim($base_url, '/') . '/'; // Match how slaves are set on the master.
     $payload['uid'] = $account->uid;
     $payload['timestamp'] = $_SERVER['REQUEST_TIME'];
-    $payload['signature'] = hash_hmac('sha256', $payload['name'] . '/' . $payload['timestamp'], $key);
-    $payload = drupal_http_build_query(array('thinmint' => bakery_mix(serialize($payload), 1)));
+    $payload['type'] = $type;
+    $data = bakery_bake_data($payload);
+    $payload = drupal_http_build_query(array($type => $data));
     // Push validation to master.
     $http_options = array('method' => 'POST', 'data' => $payload, 'headers' => array('Content-Type' => 'application/x-www-form-urlencoded; charset=utf-8'));
     $result = drupal_http_request($master . 'bakery/validate', $http_options);
@@ -370,7 +381,8 @@ function _bakery_reset_submit($form, &$form_state) {
   // If they have logged in before or the master updated correctly, log them in.
   if ($account->login > 0 || $result->code == 200) {
     // Log the user in.
-    _bakery_bake_chocolatechip_cookie($account->name, $account->mail, $account->init);
+    $init = _bakery_init_field($account->uid);
+    _bakery_bake_chocolatechip_cookie($account->name, $account->mail, $init);
     global $user;
     $user = $account;
     $edit = array('name' => $user->name);
@@ -605,7 +617,8 @@ function bakery_register() {
       // Redirect to slave.
       if (!variable_get('user_email_verification', TRUE)) {
         // Create identification cookie and log user in.
-        _bakery_bake_chocolatechip_cookie($account->name, $account->mail, url("user/$account->uid/edit", array('absolute' => TRUE)));
+        $init = _bakery_init_field($account->uid);
+        _bakery_bake_chocolatechip_cookie($account->name, $account->mail, $init);
         bakery_user_external_login($account);
       }
       else {
@@ -717,7 +730,8 @@ function bakery_login() {
         }
         else {
           // Passed all checks, create identification cookie and log in.
-          _bakery_bake_chocolatechip_cookie($account->name, $account->mail, url("user/$account->uid/edit", array('absolute' => TRUE)));
+          $init = _bakery_init_field($account->uid);
+          _bakery_bake_chocolatechip_cookie($account->name, $account->mail, $init);
           global $user;
           $user = $account;
           $edit = array('name' => $user->name);
@@ -795,6 +809,47 @@ function bakery_user_page() {
 }
 
 /**
+ * Encrypt and sign data for Bakery transfer.
+ *
+ * @param Array of data to be transferred.
+ *
+ * @return String of signed and encrypted data, url safe.
+ */
+function bakery_bake_data($data) {
+  $key = variable_get('bakery_key', '');
+  $data = bakery_encrypt(serialize($data));
+  $signature = hash_hmac('sha256', $data, $key);
+  return base64_encode($signature . $data);
+}
+
+/**
+ * Validate signature and decrypt data.
+ *
+ * @param String of Bakery data, base64 encoded.
+ * @param Optional string defining the type of data this is.
+ *
+ * @return Unserialized data or FALSE if invalid.
+ */
+function bakery_validate_data($data, $type = NULL) {
+  $key = variable_get('bakery_key', '');
+  $data = base64_decode($data);
+  $signature = substr($data, 0, 64);
+  $encrypted_data = substr($data, 64);
+  if ($signature !== hash_hmac('sha256', $encrypted_data, $key)) {
+    return FALSE;
+  }
+  $decrypted_data = unserialize(bakery_decrypt($encrypted_data));
+  // Prevent one cookie being used in place of another.
+  if ($type !== NULL && $decrypted_data['type'] !== $type) {
+    return FALSE;
+  }
+  if ($decrypted_data['timestamp'] + variable_get('bakery_freshness', '3600') >= $_SERVER['REQUEST_TIME']) {
+    return $decrypted_data;
+  }
+  return FALSE;
+}
+
+/**
  * Function to validate cookies
  *
  * @param $type (string) CHOCOLATECHIP or OATMEAL, default CHOCOLATECHIP
@@ -808,21 +863,16 @@ function _bakery_validate_cookie($type = 'CHOCOLATECHIP') {
   if ($cookie_secure) {
     $type .= 'SSL';
   }
-
   if (!isset($_COOKIE[$type]) || !$key || !variable_get('bakery_domain', '')) {
-    return;
+    return FALSE;
   }
 
-  $cookie = unserialize(bakery_mix($_COOKIE[$type], 0));
-  $signature = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['mail'] . '/' . $cookie['timestamp'], $key);
-
-  $valid = FALSE;
-
-  if ($signature == $cookie['signature'] && $cookie['timestamp'] + variable_get('bakery_freshness', '3600') >= $_SERVER['REQUEST_TIME']) {
-    $valid = TRUE;
+  if (($data = bakery_validate_data($_COOKIE[$type], $type)) !== FALSE) {
+    return $data;
   }
-
-  return $valid ? $cookie : $valid;
+  else {
+    return FALSE;
+  }
 }
 
 /**
@@ -999,23 +1049,18 @@ function _bakery_taste_chocolatechip_cookie() {
  * Validate update request.
  */
 function bakery_taste_stroopwafel_cookie() {
-  $payload = isset($_POST['stroopwafel']) ? $_POST['stroopwafel'] : FALSE;
-  $valid = FALSE;
-
-  if ($payload) {
-    $cookie = unserialize(bakery_mix($payload, 0));
-    $key = variable_get('bakery_key', '');
-    $signature = hash_hmac('sha256', $cookie['data'] . '/' . $cookie['uid'] . '/' . $cookie['timestamp'], $key);
-
-    if ($signature == $cookie['signature'] && $cookie['timestamp'] + variable_get('bakery_freshness', '3600') >= $_SERVER['REQUEST_TIME']) {
-      $valid = TRUE;
-      $_SESSION['bakery'] = unserialize($cookie['data']);
-      $_SESSION['bakery']['uid'] = $cookie['uid'];
-      $_SESSION['bakery']['category'] = $cookie['category'];
-    }
+  $type = 'stroopwafel';
+  if (empty($_POST[$type])) {
+    return FALSE;
+  }
+  if (($payload = bakery_validate_data($_POST[$type], $type)) === FALSE) {
+    return FALSE;
   }
 
-  return $valid;
+  $_SESSION['bakery'] = unserialize($payload['data']);
+  $_SESSION['bakery']['uid'] = $payload['uid'];
+  $_SESSION['bakery']['category'] = $payload['category'];
+  return TRUE;
 }
 
 /**
@@ -1031,39 +1076,32 @@ function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
     $cookie['master'] = variable_get('bakery_is_master', 0);
     $cookie['calories'] = 480;
     $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
-    $cookie['signature'] = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['mail'] . '/' . $cookie['timestamp'], $key);
     // Use different names for HTTP and HTTPS to prevent a cookie collision.
     $cookie_secure = ini_get('session.cookie_secure');
     $type = 'CHOCOLATECHIP';
     if ($cookie_secure) {
       $type .= 'SSL';
     }
-    setcookie($type, bakery_mix(serialize($cookie), 1), $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''), (empty($cookie_secure) ? FALSE : TRUE));
+    $cookie['type'] = $type;
+    $data = bakery_bake_data($cookie);
+    setcookie($type, $data, $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''), (empty($cookie_secure) ? FALSE : TRUE));
   }
 }
 
 function bakery_taste_oatmeal_cookie() {
   $key = variable_get('bakery_key', '');
-
   $type = 'OATMEAL';
   if (ini_get('session.cookie_secure')) {
     $type .= 'SSL';
   }
 
   if (!isset($_COOKIE[$type]) || !$key || !variable_get('bakery_domain', '')) {
-    return;
+    return FALSE;
   }
-
-  $cookie = unserialize(bakery_mix($_COOKIE[$type], 0));
-  $signature = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
-
-  $valid = FALSE;
-
-  if ($signature == $cookie['signature'] && $cookie['timestamp'] + variable_get('bakery_freshness', '3600') >= $_SERVER['REQUEST_TIME']) {
-    $valid = TRUE;
+  if (($data = bakery_validate_data($_COOKIE[$type], $type)) !== FALSE) {
+    return $data;
   }
-
-  return $valid ? $cookie : $valid;
+  return FALSE;
 }
 
 /**
@@ -1087,14 +1125,15 @@ function bakery_bake_oatmeal_cookie($name, $data) {
       $cookie['master'] = 0;
       $cookie['slave'] = $base_url . '/'; // Match the way slaves are set in Bakery settings, with ending slash.
     }
-    $cookie['signature'] = hash_hmac('sha256', $name . '/' . $cookie['timestamp'], $key);
     // Use different names for HTTP and HTTPS to prevent a cookie collision.
     $cookie_secure = ini_get('session.cookie_secure');
     $type = 'OATMEAL';
     if ($cookie_secure) {
       $type .= 'SSL';
     }
-    setcookie($type, bakery_mix(serialize($cookie), 1), $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''), (empty($cookie_secure) ? FALSE : TRUE));
+    $cookie['type'] = $type;
+    $data = bakery_bake_data($cookie);
+    setcookie($type, $data, $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''), (empty($cookie_secure) ? FALSE : TRUE));
   }
 }
 
@@ -1153,23 +1192,17 @@ function bakery_eat_stroopwafel_cookie() {
  * Verify the validation request.
  */
 function bakery_taste_thinmint_cookie() {
-  $valid = FALSE;
-
-  if (isset($_POST['thinmint'])) {
-    $payload = $_POST['thinmint'];
-    $cookie = unserialize(bakery_mix($payload, 0));
-    $key = variable_get('bakery_key', '');
-    $signature = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
-
-    if ($signature == $cookie['signature'] && $cookie['timestamp'] + variable_get('bakery_freshness', '3600') >= $_SERVER['REQUEST_TIME']) {
-      $valid = TRUE;
-      $_SESSION['bakery']['name'] = $cookie['name'];
-      $_SESSION['bakery']['slave'] = $cookie['slave'];
-      $_SESSION['bakery']['uid'] = $cookie['uid'];
-    }
+  $type = 'thinmint';
+  if (empty($_POST[$type])) {
+    return FALSE;
   }
-
-  return $valid;
+  if (($cookie = bakery_validate_data($_POST[$type], $type)) === FALSE) {
+    return FALSE;
+  }
+  $_SESSION['bakery']['name'] = $cookie['name'];
+  $_SESSION['bakery']['slave'] = $cookie['slave'];
+  $_SESSION['bakery']['uid'] = $cookie['uid'];
+  return TRUE;
 }
 
 /**
@@ -1232,14 +1265,16 @@ function bakery_request_account($name, $or_email = FALSE) {
   }
   $stub_uid = $account->uid;
 
+  $type = 'gingerbread';
   $payload = array();
   $payload['name'] = $name;
   $payload['or_email'] = $or_email;
   $payload['slave'] = rtrim($base_url, '/') . '/'; // Match how slaves are set on the master.
   $payload['uid'] = $account->uid;
   $payload['timestamp'] = $_SERVER['REQUEST_TIME'];
-  $payload['signature'] = hash_hmac('sha256', $payload['name'] . '/' . $payload['timestamp'], $key);
-  $payload = drupal_http_build_query(array('gingerbread' => bakery_mix(serialize($payload), 1)));
+  $payload['type'] = $type;
+  $data = bakery_bake_data($payload);
+  $payload = drupal_http_build_query(array($type => $data));
   // Make request to master for account information.
   $http_options = array('method' => 'POST', 'data' => $payload, 'headers' => array('Content-Type' => 'application/x-www-form-urlencoded; charset=utf-8'));
   $result = drupal_http_request($master . 'bakery/create', $http_options);
@@ -1251,12 +1286,7 @@ function bakery_request_account($name, $or_email = FALSE) {
     return FALSE;
   }
 
-  // Create account.
-  $cookie = unserialize(bakery_mix($result->data, 0));
-  $key = variable_get('bakery_key', '');
-  $signature = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
-
-  if ($signature != $cookie['signature']) {
+  if (($cookie = bakery_validate_data($result->data)) === FALSE) {
     // Invalid response.
     watchdog('bakery', 'Invalid response from master when attempting to create local account for @name', array('@name' => $name), WATCHDOG_ERROR);
     user_delete($stub_uid);
@@ -1292,24 +1322,18 @@ function bakery_request_account($name, $or_email = FALSE) {
  * Validate the account information request.
  */
 function bakery_taste_gingerbread_cookie() {
-  $valid = FALSE;
-
-  if (isset($_POST['gingerbread'])) {
-    $payload = $_POST['gingerbread'];
-    $cookie = unserialize(bakery_mix($payload, 0));
-    $key = variable_get('bakery_key', '');
-    $signature = hash_hmac('sha256', $cookie['name'] . '/' . $cookie['timestamp'], $key);
-
-    if ($signature == $cookie['signature'] && $cookie['timestamp'] + variable_get('bakery_freshness', '3600') >= $_SERVER['REQUEST_TIME']) {
-      $valid = TRUE;
-      $_SESSION['bakery']['name'] = $cookie['name'];
-      $_SESSION['bakery']['or_email'] = $cookie['or_email'];
-      $_SESSION['bakery']['slave'] = $cookie['slave'];
-      $_SESSION['bakery']['uid'] = $cookie['uid'];
-    }
+  $type = 'gingerbread';
+  if (empty($_POST[$type])) {
+    return FALSE;
   }
-
-  return $valid;
+  if (($cookie = bakery_validate_data($_POST[$type], $type)) === FALSE) {
+    return FALSE;
+  }
+  $_SESSION['bakery']['name'] = $cookie['name'];
+  $_SESSION['bakery']['or_email'] = $cookie['or_email'];
+  $_SESSION['bakery']['slave'] = $cookie['slave'];
+  $_SESSION['bakery']['uid'] = $cookie['uid'];
+  return TRUE;
 }
 
 /**
@@ -1345,10 +1369,8 @@ function bakery_eat_gingerbread_cookie() {
       }
     }
     $payload['timestamp'] = $_SERVER['REQUEST_TIME'];
-    $payload['signature'] = hash_hmac('sha256', $payload['name'] . '/' . $payload['timestamp'], $key);
-
     // Respond with encrypted and signed account information.
-    $message = bakery_mix(serialize($payload), 1);
+    $message = bakery_bake_data($payload);
   }
   else {
     $message = t('No account found');
@@ -1389,12 +1411,13 @@ function _bakery_init_field_url($init) {
 }
 
 /**
- * Encryption
+ * Encryption handler.
  *
- * @param $text, The text that you want to encrypt.
- * @param $crypt = 1 if you want to crypt, or 0 if you want to decrypt.
+ * @param $text, The text to be encrypted.
+ *
+ * @return Encryped text.
  */
-function bakery_mix($text, $crypt) {
+function bakery_encrypt($text) {
   $key = variable_get('bakery_key', '');
 
   $td = mcrypt_module_open('rijndael-128', '', 'ecb', '');
@@ -1404,19 +1427,37 @@ function bakery_mix($text, $crypt) {
 
   mcrypt_generic_init($td, $key, $iv);
 
-  if ($crypt) {
-    // Base64 encode the encrypted text because the result may contain
-    // characters that are not stored consistently in cookies.
-    $encrypted_data = base64_encode(mcrypt_generic($td, $text));
-  }
-  else {
-    $encrypted_data = mdecrypt_generic($td, base64_decode($text));
-  }
+  $data = mcrypt_generic($td, $text);
 
   mcrypt_generic_deinit($td);
   mcrypt_module_close($td);
 
-  return $encrypted_data;
+  return $data;
+}
+
+/**
+ * Decryption handler.
+ *
+ * @param $text, The data to be decrypted.
+ *
+ * @return Decrypted text.
+ */
+function bakery_decrypt($text) {
+  $key = variable_get('bakery_key', '');
+
+  $td = mcrypt_module_open('rijndael-128', '', 'ecb', '');
+  $iv = mcrypt_create_iv(mcrypt_enc_get_iv_size($td), MCRYPT_RAND);
+
+  $key = substr($key, 0, mcrypt_enc_get_key_size($td));
+
+  mcrypt_generic_init($td, $key, $iv);
+
+  $data = mdecrypt_generic($td, $text);
+
+  mcrypt_generic_deinit($td);
+  mcrypt_module_close($td);
+
+  return $data;
 }
 
 /**
