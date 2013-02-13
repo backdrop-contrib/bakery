@@ -32,3 +32,19 @@ function bakery_schema() {
   );
 }
 
+/**
+ * Implements hook_uninstall().
+ *
+ * Remove Bakery variables.
+ */
+function bakery_uninstall() {
+  variable_del('bakery_key');
+  variable_del('bakery_domain');
+  variable_del('bakery_is_master');
+  variable_del('bakery_master');
+  variable_del('bakery_slaves');
+  variable_del('bakery_supported_fields');
+  variable_del('bakery_help_text');
+  variable_del('bakery_freshness');
+  variable_del('bakery_cookie_extension');
+}

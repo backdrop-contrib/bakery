@@ -886,6 +886,25 @@ function bakery_validate_data($data, $type = NULL) {
 }
 
 /**
+ * Name for cookie including session.cookie_secure and variable extension.
+ *
+ * @param string $type
+ *   CHOCOLATECHIP or OATMEAL, default CHOCOLATECHIP
+ * @return string
+ *   The cookie name for this environment.
+ */
+function _bakery_cookie_name($type = 'CHOCOLATECHIP') {
+  // Use different names for HTTPS and HTTP to prevent a cookie collision.
+  if (ini_get('session.cookie_secure')) {
+    $type .= 'SSL';
+  }
+  // Allow installation to modify the cookie name.
+  $extension = variable_get('bakery_cookie_extension', '');
+  $type .= $extension;
+  return $type;
+}
+
+/**
  * Function to validate cookies
  *
  * @param $type (string) CHOCOLATECHIP or OATMEAL, default CHOCOLATECHIP
@@ -895,10 +914,7 @@ function bakery_validate_data($data, $type = NULL) {
 function _bakery_validate_cookie($type = 'CHOCOLATECHIP') {
   $key = variable_get('bakery_key', '');
 
-  $cookie_secure = ini_get('session.cookie_secure');
-  if ($cookie_secure) {
-    $type .= 'SSL';
-  }
+  $type = _bakery_cookie_name($type);
   if (!isset($_COOKIE[$type]) || !$key || !variable_get('bakery_domain', '')) {
     return FALSE;
   }
@@ -1112,12 +1128,8 @@ function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
     $cookie['master'] = variable_get('bakery_is_master', 0);
     $cookie['calories'] = 480;
     $cookie['timestamp'] = $_SERVER['REQUEST_TIME'];
-    // Use different names for HTTP and HTTPS to prevent a cookie collision.
     $cookie_secure = ini_get('session.cookie_secure');
-    $type = 'CHOCOLATECHIP';
-    if ($cookie_secure) {
-      $type .= 'SSL';
-    }
+    $type = _bakery_cookie_name('CHOCOLATECHIP');
     $cookie['type'] = $type;
     $data = bakery_bake_data($cookie);
     setcookie($type, $data, $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''), (empty($cookie_secure) ? FALSE : TRUE));
@@ -1126,10 +1138,7 @@ function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
 
 function bakery_taste_oatmeal_cookie() {
   $key = variable_get('bakery_key', '');
-  $type = 'OATMEAL';
-  if (ini_get('session.cookie_secure')) {
-    $type .= 'SSL';
-  }
+  $type = _bakery_cookie_name('OATMEAL');
 
   if (!isset($_COOKIE[$type]) || !$key || !variable_get('bakery_domain', '')) {
     return FALSE;
@@ -1161,12 +1170,8 @@ function bakery_bake_oatmeal_cookie($name, $data) {
       $cookie['master'] = 0;
       $cookie['slave'] = $base_url . '/'; // Match the way slaves are set in Bakery settings, with ending slash.
     }
-    // Use different names for HTTP and HTTPS to prevent a cookie collision.
     $cookie_secure = ini_get('session.cookie_secure');
-    $type = 'OATMEAL';
-    if ($cookie_secure) {
-      $type .= 'SSL';
-    }
+    $type = _bakery_cookie_name('OATMEAL');
     $cookie['type'] = $type;
     $data = bakery_bake_data($cookie);
     setcookie($type, $data, $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''), (empty($cookie_secure) ? FALSE : TRUE));
@@ -1422,9 +1427,7 @@ function bakery_eat_gingerbread_cookie() {
  */
 function _bakery_eat_cookie($type = 'CHOCOLATECHIP') {
   $cookie_secure = ini_get('session.cookie_secure');
-  if ($cookie_secure) {
-    $type .= 'SSL';
-  }
+  $type = _bakery_cookie_name($type);
   setcookie($type, '', $_SERVER['REQUEST_TIME'] - 3600, '/', '', (empty($cookie_secure) ? FALSE : TRUE));
   setcookie($type, '', $_SERVER['REQUEST_TIME'] - 3600, '/', variable_get('bakery_domain', ''), (empty($cookie_secure) ? FALSE : TRUE));
 }
