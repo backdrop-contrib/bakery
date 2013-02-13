@@ -397,6 +397,31 @@ function _bakery_reset_submit($form, &$form_state) {
 }
 
 /**
+ * Check if a form destination is set and save it in $data array.
+ *
+ * Used to preserve destination in Bakery redirection to master and slave
+ * during login and registration.
+ *
+ * @see drupal_goto()
+ *
+ * @param $form
+ *   Form definition to check.
+ * @param $data
+ *   Array to store the detected destination value, if any.
+ */
+function _bakery_save_destination_param($form, &$data) {
+  // Hold on to destination if set.
+  if (strpos($form['#action'], 'destination=') !== FALSE) {
+    // If an absolute URL is in destination parse_url() will issue a warning
+    // and not populate $url_args so no further protection is needed.
+    parse_str(parse_url($form['#action'], PHP_URL_QUERY), $url_args);
+    if (!empty($url_args['destination'])) {
+      $data['destination'] = $url_args['destination'];
+    }
+  }
+}
+
+/**
  * Handle registration by redirecting to master.
  */
 function _bakery_register_submit($form, &$form_state) {
@@ -412,6 +437,8 @@ function _bakery_register_submit($form, &$form_state) {
   form_state_values_clean($form_state);
   // Save values to cookie.
   $data = $form_state['values'];
+  _bakery_save_destination_param($form , $data);
+  unset($_GET['destination']);
 
   // Store name and email in case of error and return from master.
   $_SESSION['bakery']['register'] = array(
@@ -437,18 +464,11 @@ function _bakery_login_submit($form, &$form_state) {
   }
 
   $data = $form_state['values'];
-  // Hold on to destination if set.
-  if (strpos($form['#action'], 'destination=') !== FALSE) {
-    // If an absolute URL is in destination parse_url() will issue a warning
-    // and not populate $url_args so no further protection is needed.
-    parse_str(parse_url($form['#action'], PHP_URL_QUERY), $url_args);
-    if (!empty($url_args['destination'])) {
-      $data['destination'] = $url_args['destination'];
-    }
-  }
+  _bakery_save_destination_param($form , $data);
+  unset($_GET['destination']);
+
   // Create cookie and redirect to master.
   bakery_bake_oatmeal_cookie($data['name'], $data);
-  unset($_GET['destination']);
   drupal_goto(variable_get('bakery_master', 'http://drupal.org/') . 'bakery/login');
 }
 
@@ -635,6 +655,11 @@ function bakery_register() {
     // Redirect back to custom Bakery callback on slave.
     $data['errors'] = $errors;
     $data['name'] = $name;
+    // Carry destination through return.
+    if (isset($cookie['data']['destination'])) {
+      $data['destination'] = $cookie['data']['destination'];
+    }
+
     // Bake a new cookie for validation on the slave.
     bakery_bake_oatmeal_cookie($name, $data);
     drupal_goto($cookie['slave'] . 'bakery');
@@ -655,11 +680,20 @@ function bakery_register_return() {
     // Valid cookie, now destroy it.
     _bakery_eat_cookie('OATMEAL');
 
+    // Destination in cookie was set before user left this site, extract it to
+    // be sure destination workflow is followed.
+    if (empty($cookie['data']['destination'])) {
+      $destination = '<front>';
+    }
+    else {
+      $destination = $cookie['data']['destination'];
+    }
+
     $errors = $cookie['data']['errors'];
     if (empty($errors)) {
       drupal_set_message(t('Registration successful. You are now logged in.'));
-      // Redirect to front page.
-      drupal_goto('<front>');
+      // Redirect to destination.
+      drupal_goto($destination);
     }
     else {
       if (!empty($errors['register'])) {
@@ -694,6 +728,7 @@ function bakery_register_return() {
       if (!empty($errors['name_denied'])) {
         drupal_set_message(t('The name has been denied access..'), 'error');
       }
+      // There are errors so keep user on registration page.
       drupal_goto('user/register');
     }
   }
@@ -755,6 +790,7 @@ function bakery_login() {
       'errors' => $errors,
       'name' => $name,
     );
+    // Carry destination through login.
     if (isset($cookie['data']['destination'])) {
       $data['destination'] = $cookie['data']['destination'];
     }
