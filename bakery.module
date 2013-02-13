@@ -814,7 +814,7 @@ function bakery_login_return() {
       if (!empty($errors['incorrect-credentials'])) {
         drupal_set_message(t('Sorry, unrecognized username or password.'), 'error');
       }
-      elseif ($errors['name']) {
+      elseif (!empty($errors['name'])) {
         // In case an attacker got the hash we filter the argument here to avoid
         // exposing a XSS vector.
         drupal_set_message(filter_xss($errors['name']), 'error');
