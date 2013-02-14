@@ -363,7 +363,7 @@ function _bakery_reset_submit($form, &$form_state) {
   // against forgery.
   $account = user_load(arg(2));
   // If they have not logged in before we need to update the master site.
-  if ($account->login === 0) {
+  if ($account->login == 0) {
     $type = 'thinmint';
     $payload = array();
     $payload['name'] = $account->name;
