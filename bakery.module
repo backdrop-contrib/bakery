@@ -466,6 +466,8 @@ function _bakery_login_submit($form, &$form_state) {
   $data = $form_state['values'];
   _bakery_save_destination_param($form , $data);
   unset($_GET['destination']);
+  // Save query parameters to be available when user returns from master.
+  $data['query'] = drupal_get_query_parameters();
 
   // Create cookie and redirect to master.
   bakery_bake_oatmeal_cookie($data['name'], $data);
@@ -742,6 +744,8 @@ function bakery_login() {
   $cookie = bakery_taste_oatmeal_cookie();
 
   if ($cookie) {
+    // Make sure there are query defaults.
+    $cookie['data'] += array('query' => array());
     $errors = array();
     // Remove the data pass cookie.
     _bakery_eat_cookie('OATMEAL');
@@ -794,6 +798,8 @@ function bakery_login() {
     if (isset($cookie['data']['destination'])) {
       $data['destination'] = $cookie['data']['destination'];
     }
+    // Carry other query parameters through login.
+    $data['query'] = $cookie['data']['query'];
     bakery_bake_oatmeal_cookie($name, $data);
     drupal_goto($cookie['slave'] . '/bakery/login');
   }
@@ -806,6 +812,8 @@ function bakery_login() {
 function bakery_login_return() {
   $cookie = bakery_taste_oatmeal_cookie();
   if ($cookie) {
+    // Make sure we always have a default query key.
+    $cookie['data'] += array('query' => array());
     // Valid cookie, now destroy it.
     _bakery_eat_cookie('OATMEAL');
 
@@ -820,11 +828,19 @@ function bakery_login_return() {
         drupal_set_message(filter_xss($errors['name']), 'error');
       }
     }
+    // Prepare the url options array to pass to drupal_goto().
+    $options = array('query' => $cookie['data']['query']);
     if (empty($cookie['data']['destination'])) {
-      drupal_goto('user');
+      drupal_goto('user', $options);
     }
     else {
-      drupal_goto($cookie['data']['destination']);
+      $destination = $cookie['data']['destination'];
+      if (($pos = strpos($cookie['data']['destination'], '?')) !== FALSE) {
+        // Destination contains query arguments that must be extracted.
+        $destination = substr($cookie['data']['destination'], 0, $pos);
+        $options['query'] += drupal_get_query_array(substr($cookie['data']['destination'], $pos + 1));
+      }
+      drupal_goto($destination, $options);
     }
   }
   drupal_access_denied();
@@ -1155,7 +1171,6 @@ function bakery_taste_oatmeal_cookie() {
  * Create a cookie for passing information between sites for registration and login.
  */
 function bakery_bake_oatmeal_cookie($name, $data) {
-
   $key = variable_get('bakery_key', '');
   if (!empty($key)) {
     global $base_url;
