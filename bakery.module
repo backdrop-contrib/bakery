@@ -843,6 +843,10 @@ function bakery_login_return() {
       drupal_goto($destination, $options);
     }
   }
+  // If user is logged in and visiting this page redirect to <front>.
+  elseif (user_is_logged_in()) {
+    drupal_goto();
+  }
   drupal_access_denied();
 }
 
