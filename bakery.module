@@ -990,7 +990,7 @@ function _bakery_taste_chocolatechip_cookie() {
           ->countQuery()->execute()->fetchField();
         if ($count > 1) {
           // Uh oh.
-          watchdog('bakery', 'Account uniqueness problem: Multiple users found with init %init.', array('%init' => $cookie['init']), 'error');
+          watchdog('bakery', 'Account uniqueness problem: Multiple users found with init %init.', array('%init' => $cookie['init']), WATCHDOG_ERROR);
           drupal_set_message(t('Account uniqueness problem detected. <a href="@contact">Please contact the site administrator.</a>', array('@contact' => variable_get('bakery_master', 'http://drupal.org/') .'contact')), 'error');
         }
         if ($count == 1) {
@@ -1070,7 +1070,7 @@ function _bakery_taste_chocolatechip_cookie() {
         else {
           // Username and email matched, but init belonged to a DIFFERENT account.
           // Something got seriously tangled up.
-          watchdog('bakery', 'Accounts mixed up! Username %user and init %init disagree with each other!', array('%user' => $account->name, '%init' => $cookie['init']), 'critical');
+          watchdog('bakery', 'Accounts mixed up! Username %user and init %init disagree with each other!', array('%user' => $account->name, '%init' => $cookie['init']), WATCHDOG_CRITICAL);
         }
       }
 
