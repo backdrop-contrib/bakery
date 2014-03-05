@@ -903,7 +903,9 @@ function bakery_validate_data($data, $type = NULL) {
   if ($type !== NULL && $decrypted_data['type'] !== $type) {
     return FALSE;
   }
-  if ($decrypted_data['timestamp'] + variable_get('bakery_freshness', '3600') >= $_SERVER['REQUEST_TIME']) {
+  // Allow cookies to expire when the browser closes.
+  if (variable_get('bakery_freshness', '3600') == 0
+    || $decrypted_data['timestamp'] + variable_get('bakery_freshness', '3600') >= $_SERVER['REQUEST_TIME']) {
     return $decrypted_data;
   }
   return FALSE;
@@ -1167,7 +1169,9 @@ function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
     $type = _bakery_cookie_name('CHOCOLATECHIP');
     $cookie['type'] = $type;
     $data = bakery_bake_data($cookie);
-    setcookie($type, $data, $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''), $cookie_secure);
+    // Allow cookies to expire when the browser closes.
+    $expire = (variable_get('bakery_freshness', '3600') > 0) ? $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600') : '0';
+    setcookie($type, $data, $expire, '/', variable_get('bakery_domain', ''), $cookie_secure);
   }
 }
 
@@ -1208,7 +1212,9 @@ function bakery_bake_oatmeal_cookie($name, $data) {
     $type = _bakery_cookie_name('OATMEAL');
     $cookie['type'] = $type;
     $data = bakery_bake_data($cookie);
-    setcookie($type, $data, $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600'), '/', variable_get('bakery_domain', ''), (empty($cookie_secure) ? FALSE : TRUE));
+    // Allow cookies to expire when the browser closes.
+    $expire = (variable_get('bakery_freshness', '3600') > 0) ? $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600') : '0';
+    setcookie($type, $data, $expire, '/', variable_get('bakery_domain', ''), (empty($cookie_secure) ? FALSE : TRUE));
   }
 }
 
