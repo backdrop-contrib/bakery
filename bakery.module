@@ -137,6 +137,10 @@ function bakery_user_logout($account) {
  */
 function bakery_user_presave(&$edit, $account, $category) {
   if (variable_get('bakery_is_master', 0)) {
+    // Invoke implementations of hook_bakery_transmit() for syncing arbitrary
+    // data.
+    $_SESSION['bakery']['data'] = module_invoke_all('bakery_transmit', $edit, $account, $category);
+
     // We store email/name if they changed. We want to wait with doing
     // anything else until the changes are saved locally.
     foreach (variable_get('bakery_supported_fields', array('mail' => 'mail', 'name' => 'name')) as $type => $enabled) {
@@ -1243,6 +1247,9 @@ function bakery_eat_stroopwafel_cookie() {
       watchdog('bakery', 'user updated name %name_old to %name_new, mail %mail_old to %mail_new.', array('%name_old' => $account->name, '%name_new' => $stroopwafel['name'], '%mail_old' => $account->mail, '%mail_new' => $stroopwafel['mail']));
       $message = t('Successfully updated account on %slave.', array('%slave' => variable_get('site_name', '')));
     }
+
+    // Invoke hook_bakery_receive().
+    module_invoke_all('bakery_receive', $account, $stroopwafel);
   }
 
   module_invoke_all('exit');
@@ -1372,6 +1379,8 @@ function bakery_request_account($name, $or_email = FALSE) {
   $account = user_save($account, $new_account);
   if ($account) {
     watchdog('bakery', 'Created account for @name', array('@name' => $name));
+    // Invoke hook_bakery_receive().
+    module_invoke_all('bakery_receive', $account, $cookie);
     return $account->uid;
   }
 
@@ -1430,6 +1439,11 @@ function bakery_eat_gingerbread_cookie() {
         $payload[$type] = $account->$type;
       }
     }
+
+    // Invoke implementations of hook_bakery_transmit() for syncing arbitrary
+    // data.
+    $payload['data'] = module_invoke_all('bakery_transmit', NULL, $account);
+
     $payload['timestamp'] = $_SERVER['REQUEST_TIME'];
     // Respond with encrypted and signed account information.
     $message = bakery_bake_data($payload);
