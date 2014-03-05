@@ -805,7 +805,7 @@ function bakery_login() {
     // Carry other query parameters through login.
     $data['query'] = $cookie['data']['query'];
     bakery_bake_oatmeal_cookie($name, $data);
-    drupal_goto($cookie['slave'] . '/bakery/login');
+    drupal_goto($cookie['slave'] . 'bakery/login');
   }
   drupal_access_denied();
 }
