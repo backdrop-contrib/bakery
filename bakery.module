@@ -197,7 +197,9 @@ function bakery_user_update(&$edit, $account, $category) {
         drupal_set_message(t('Error %error for site at %url', array('%error' => $result->code .' '. $result->error, '%url' => $slave)));
       }
       else {
-        drupal_set_message($result->data);
+        if (user_access('administer bakery')) {
+          drupal_set_message($result->data);
+        }
         // TODO: Roll back the change.
       }
     }
