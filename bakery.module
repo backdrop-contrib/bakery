@@ -299,7 +299,7 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
         if (arg(0) == 'admin') {
           // Admin create user form. Add a note about account synchronization.
           $form['account']['bakery_help'] = array(
-            '#value' => t('<strong>Note:</strong> Only use this form to create accounts for users who exist on <a href="!url">@master</a> and not on this site. Be sure to use the exact same username and e-mail for the account here that they have on @master.', array('!url' => variable_get('bakery_master', 'http://drupal.org'), '@master' => variable_get('bakery_master', 'http://drupal.org'))),
+            '#markup' => t('<strong>Note:</strong> Only use this form to create accounts for users who exist on <a href="!url">@master</a> and not on this site. Be sure to use the exact same username and e-mail for the account here that they have on @master.', array('!url' => variable_get('bakery_master', 'http://drupal.org'), '@master' => variable_get('bakery_master', 'http://drupal.org'))),
             '#weight' => -100,
           );
         }
