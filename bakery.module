@@ -532,7 +532,7 @@ function bakery_settings($form, &$form_state) {
   $form['bakery_freshness'] = array(
     '#type' => 'textfield',
     '#title' => 'Seconds of age before a cookie is old',
-    '#default_value' => variable_get('bakery_freshness', '3600'),
+    '#default_value' => variable_get('bakery_freshness', ini_get('session.cookie_lifetime')),
   );
 
   $form['bakery_key'] = array(
@@ -919,8 +919,8 @@ function bakery_validate_data($data, $type = NULL) {
     return FALSE;
   }
   // Allow cookies to expire when the browser closes.
-  if (variable_get('bakery_freshness', '3600') == 0
-    || $decrypted_data['timestamp'] + variable_get('bakery_freshness', '3600') >= $_SERVER['REQUEST_TIME']) {
+  if (variable_get('bakery_freshness', ini_get('session.cookie_lifetime')) == 0
+    || $decrypted_data['timestamp'] + variable_get('bakery_freshness', ini_get('session.cookie_lifetime')) >= $_SERVER['REQUEST_TIME']) {
     return $decrypted_data;
   }
   return FALSE;
@@ -998,8 +998,10 @@ function _bakery_taste_chocolatechip_cookie() {
       _bakery_user_logout();
     }
 
-    // Bake a fresh cookie. Yum.
-    _bakery_bake_chocolatechip_cookie($cookie['name'], $cookie['mail'], $cookie['init']);
+    if (variable_get('bakery_is_master', 0)) {
+      // Bake a fresh cookie. Yum.
+      _bakery_bake_chocolatechip_cookie($cookie['name'], $cookie['mail'], $cookie['init']);
+    }
 
     if (!$user->uid) {
       // Since this might happen in hook_boot we need to bootstrap first.
@@ -1185,7 +1187,7 @@ function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
     $cookie['type'] = $type;
     $data = bakery_bake_data($cookie);
     // Allow cookies to expire when the browser closes.
-    $expire = (variable_get('bakery_freshness', '3600') > 0) ? $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600') : '0';
+    $expire = (variable_get('bakery_freshness', ini_get('session.cookie_lifetime')) > 0) ? $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', ini_get('session.cookie_lifetime')) : '0';
     setcookie($type, $data, $expire, '/', variable_get('bakery_domain', ''), $cookie_secure, TRUE);
   }
 }
@@ -1227,8 +1229,8 @@ function bakery_bake_oatmeal_cookie($name, $data) {
     $type = _bakery_cookie_name('OATMEAL');
     $cookie['type'] = $type;
     $data = bakery_bake_data($cookie);
-    // Allow cookies to expire when the browser closes.
-    $expire = (variable_get('bakery_freshness', '3600') > 0) ? $_SERVER['REQUEST_TIME'] + variable_get('bakery_freshness', '3600') : '0';
+    // OATMEAL cookies should expire relatively soon.
+    $expire = $_SERVER['REQUEST_TIME'] + 60;
     setcookie($type, $data, $expire, '/', variable_get('bakery_domain', ''), (empty($cookie_secure) ? FALSE : TRUE), TRUE);
   }
 }
