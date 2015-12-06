@@ -1477,6 +1477,7 @@ function bakery_eat_gingerbread_cookie() {
     $payload['timestamp'] = $_SERVER['REQUEST_TIME'];
     // Respond with encrypted and signed account information.
     $message = bakery_bake_data($payload);
+    drupal_add_http_header('Content-Type', 'application/octet-stream; type=bakery-baked-data');
   }
   else {
     $message = t('No account found');
