@@ -80,6 +80,21 @@ function bakery_menu() {
 }
 
 /**
+ * Implementation of hook_menu_alter().
+ */
+function bakery_menu_alter(&$items) {
+  if (!variable_get('bakery_is_master', 0)) {
+    // Redirect password resets to the master site because the password needs
+    // to be reset there. No need to maintain destination since the reset/login
+    // process looses it anyway.
+    $items['user/password']['page callback'] = 'drupal_goto';
+    $items['user/password']['page arguments'] = array(
+      variable_get('bakery_master', 'http://drupal.org/') . 'user/password',
+    );
+  }
+}
+
+/**
  * Implements hook_translated_menu_link_alter().
  */
 function bakery_translated_menu_link_alter(&$item, $map) {
