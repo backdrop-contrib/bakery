@@ -1259,12 +1259,19 @@ function bakery_eat_stroopwafel_cookie() {
 
     // If profile field is enabled we manually save profile fields along the way.
     $fields = array();
+    $watchdog_message = array();
+    $watchdog_variables = array();
     foreach (variable_get('bakery_supported_fields', array('mail' => 'mail', 'name' => 'name')) as $type => $value) {
       if ($value) {
         // If the field is set in the cookie it's being updated, otherwise we'll
         // populate $fields with the existing values so nothing is lost.
         if (isset($stroopwafel[$type])) {
           $fields[$type] = $stroopwafel[$type];
+          if (in_array($type, array('mail', 'name'))) {
+            $watchdog_message[] = $type . ' %' . $type . '_old to %' . $type . '_new';
+            $watchdog_variables['%' . $type . '_old'] = $account->$type;
+            $watchdog_variables['%' . $type . '_new'] = $stroopwafel[$type];
+          }
         }
         else {
           $fields[$type] = $account->$type;
@@ -1272,13 +1279,16 @@ function bakery_eat_stroopwafel_cookie() {
       }
     }
     $status = user_save($account, $fields);
+    $uri = entity_uri('user', $account);
+    $watchdog_message = '%name' . (empty($watchdog_message) ? '' : ': ' . implode(', ', $watchdog_message));
+    $watchdog_variables['%name'] = $account->name;
     if ($status === FALSE) {
-      watchdog('bakery', 'User update from name %name_old to %name_new, mail %mail_old to %mail_new failed.', array('%name_old' => $account->name, '%name_new' => $stroopwafel['name'], '%mail_old' => $account->mail, '%mail_new' => $stroopwafel['mail']), WATCHDOG_ERROR);
+      watchdog('bakery', 'User update ' . $watchdog_message . ' failed.', $watchdog_variables, WATCHDOG_ERROR, l(t('View user'), $uri['path'], $uri['options']));
       $message = t('There was a problem updating your account on %slave. Please contact the administrator.', array('%slave' => variable_get('site_name', '')));
       header('HTTP/1.1 409 Conflict');
     }
     else {
-      watchdog('bakery', 'user updated name %name_old to %name_new, mail %mail_old to %mail_new.', array('%name_old' => $account->name, '%name_new' => $stroopwafel['name'], '%mail_old' => $account->mail, '%mail_new' => $stroopwafel['mail']));
+      watchdog('bakery', 'User updated ' . $watchdog_message . '.', $watchdog_variables, WATCHDOG_NOTICE, l(t('View user'), $uri['path'], $uri['options']));
       $message = t('Successfully updated account on %slave.', array('%slave' => variable_get('site_name', '')));
     }
 
