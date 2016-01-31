@@ -3,3 +3,5 @@ description = Provides single-sign-on support across second-level domains.
 core = 7.x
 files[] = bakery.module
 php = 5.1.2
+
+configure = admin/config/system/bakery
