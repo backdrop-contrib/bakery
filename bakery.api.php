@@ -26,7 +26,7 @@
  * @param string $category
  *   The active category of user information being edited.
  *
- * @return
+ * @return array
  *   Keyed array of data to pass along to other sites.
  */
 function hook_bakery_transmit($edit, $account, $category) {
@@ -48,7 +48,6 @@ function hook_bakery_transmit($edit, $account, $category) {
  * @param array $cookie
  *   Data sent from the master. Custom data sent by master's
  *   hook_bakery_transmit() will be available as top-level elements.
- *
  */
 function hook_bakery_receive($account, $cookie) {
   if (!empty($cookie['example_field'])) {

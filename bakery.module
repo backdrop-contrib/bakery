@@ -1,6 +1,11 @@
 <?php
 
 /**
+ * @file
+ * Module file for the Bakery.
+ */
+
+/**
  * Implements hook_menu().
  */
 function bakery_menu() {
@@ -80,7 +85,7 @@ function bakery_menu() {
 }
 
 /**
- * Implementation of hook_menu_alter().
+ * Implements hook_menu_alter().
  */
 function bakery_menu_alter(&$items) {
   if (!variable_get('bakery_is_master', 0)) {
@@ -184,7 +189,7 @@ function bakery_user_update(&$edit, $account, $category) {
     // Respond with encrypted and signed account information.
     $payload = drupal_http_build_query(array($type => $data));
     unset($_SESSION['bakery']);
-    // now update the slaves
+    // Now update the slaves.
     $slaves = variable_get('bakery_slaves', array());
     foreach ($slaves as $slave) {
       $options = array(
@@ -238,7 +243,6 @@ function bakery_boot() {
 
 /**
  * Implements hook_form_alter().
- *
  */
 function bakery_form_alter(&$form, $form_state, $form_id) {
   switch ($form_id) {
@@ -425,9 +429,9 @@ function _bakery_reset_submit($form, &$form_state) {
  *
  * @see drupal_goto()
  *
- * @param $form
+ * @param array $form
  *   Form definition to check.
- * @param $data
+ * @param array $data
  *   Array to store the detected destination value, if any.
  */
 function _bakery_save_destination_param($form, &$data) {
@@ -496,7 +500,7 @@ function _bakery_login_submit($form, &$form_state) {
 }
 
 /**
- * Admin settings, see INSTALL.txt
+ * Bakery settings form.
  */
 function bakery_settings($form, &$form_state) {
   $form = array(
@@ -567,10 +571,14 @@ function bakery_settings($form, &$form_state) {
     '#description' => t('Choose the profile fields that should be exported by the master and imported on the slaves. Username and E-mail are always exported. The correct export of individual fields may depend on the appropriate settings for other modules on both master and slaves. You need to configure this setting on both the master and the slaves.'),
   );
 
-  // Tell system_settings_form() to not set default_values since we have already done so.
+  // Tell system_settings_form() to not set default_values
+  // since we have already done so.
   return system_settings_form($form, FALSE);
 }
 
+/**
+ * Submit handler for 'bakery_settings' form.
+ */
 function bakery_settings_submit($form, &$form_state) {
   // Rebuild the menu because the router items are based on the selection of
   // the master site. (Rebuilding it immediately here would be too early,
@@ -583,12 +591,15 @@ function bakery_settings_submit($form, &$form_state) {
   // We now remove the trailing slash (if present) and concatenate with a new trailing slash.
   $form_state['values']['bakery_master'] = trim($form_state['values']['bakery_master'], '/') .'/';
 
-  // The list of slave sites needs transforming from a text string into array for storage.
-  // Also, redirection after login will only work if there is a trailing slash after each entry.
+  // The list of slave sites needs transforming from a text string into
+  // array for storage.
+  // Also, redirection after login will only work
+  // if there is a trailing slash after each entry.
   if ($form_state['values']['bakery_slaves']) {
     // Transform the text string into an array.
     $form_state['values']['bakery_slaves'] = explode("\n", trim(str_replace("\r", '', $form_state['values']['bakery_slaves'])));
-    // For each entry, remove the trailing slash (if present) and concatenate with a new trailing slash.
+    // For each entry, remove the trailing slash (if present)
+    // and concatenate with a new trailing slash.
     foreach ($form_state['values']['bakery_slaves'] as &$slave) {
       $slave = trim($slave, '/') .'/';
     }
@@ -605,7 +616,8 @@ function bakery_register() {
 
   if ($cookie) {
     // Valid cookie.
-    // Destroy the current oatmeal cookie, we'll set a new one when we return to the slave.
+    // Destroy the current oatmeal cookie, we'll set a new one
+    // when we return to the slave.
     _bakery_eat_cookie('OATMEAL');
 
     if (variable_get('user_register', 1)) {
@@ -694,7 +706,8 @@ function bakery_register() {
 /**
  * Custom return for slave registration process.
  *
- * Redirects to the homepage on success or to the register page if there was a problem.
+ * Redirects to the homepage on success
+ * or to the register page if there was a problem.
  */
 function bakery_register_return() {
   $cookie = bakery_taste_oatmeal_cookie();
@@ -888,9 +901,11 @@ function bakery_user_page() {
 /**
  * Encrypt and sign data for Bakery transfer.
  *
- * @param Array of data to be transferred.
+ * @param array $data
+ *   Array of data to be transferred.
  *
- * @return String of signed and encrypted data, url safe.
+ * @return string
+ *   String of signed and encrypted data, url safe.
  */
 function bakery_bake_data($data) {
   $key = variable_get('bakery_key', '');
@@ -902,10 +917,13 @@ function bakery_bake_data($data) {
 /**
  * Validate signature and decrypt data.
  *
- * @param String of Bakery data, base64 encoded.
- * @param Optional string defining the type of data this is.
+ * @param string $data
+ *   Bakery data, base64 encoded.
+ * @param string $type
+ *   Optional string defining the type of data this is.
  *
- * @return Unserialized data or FALSE if invalid.
+ * @return mixed
+ *   Unserialized data or FALSE if invalid.
  */
 function bakery_validate_data($data, $type = NULL) {
   $key = variable_get('bakery_key', '');
@@ -932,7 +950,8 @@ function bakery_validate_data($data, $type = NULL) {
  * Name for cookie including session.cookie_secure and variable extension.
  *
  * @param string $type
- *   CHOCOLATECHIP or OATMEAL, default CHOCOLATECHIP
+ *   CHOCOLATECHIP or OATMEAL, default CHOCOLATECHIP.
+ *
  * @return string
  *   The cookie name for this environment.
  */
@@ -957,11 +976,13 @@ function _bakery_cookie_name($type = 'CHOCOLATECHIP') {
 }
 
 /**
- * Function to validate cookies
+ * Function to validate cookies.
  *
- * @param $type (string) CHOCOLATECHIP or OATMEAL, default CHOCOLATECHIP
+ * @param string $type
+ *   CHOCOLATECHIP or OATMEAL, default CHOCOLATECHIP
  *
- * @return validated and decrypted cookie in an array, FALSE if invalid, or NULL
+ * @return mixed
+ *   Validated and decrypted cookie in an array, FALSE if invalid, or NULL.
  */
 function _bakery_validate_cookie($type = 'CHOCOLATECHIP') {
   $key = variable_get('bakery_key', '');
@@ -982,7 +1003,7 @@ function _bakery_validate_cookie($type = 'CHOCOLATECHIP') {
 }
 
 /**
- * Test identification cookie
+ * Test identification cookie.
  */
 function _bakery_taste_chocolatechip_cookie() {
   $cookie = _bakery_validate_cookie();
@@ -1092,7 +1113,8 @@ function _bakery_taste_chocolatechip_cookie() {
         // User existed previously but init is wrong. Fix it to ensure account
         // remains in sync.
 
-        // Make sure that there aren't any OTHER accounts with this init already.
+        // Make sure that there are not any OTHER accounts
+        // with this init already.
         $count = db_select('users', 'u')->fields('u', array('uid'))->condition('init', $cookie['init'], '=')
           ->countQuery()->execute()->fetchField();
         if ($count == 0) {
@@ -1102,7 +1124,8 @@ function _bakery_taste_chocolatechip_cookie() {
           watchdog('bakery', 'uid %uid out of sync. Changed init field from %oldinit to %newinit', array('%oldinit' => $account->init, '%newinit' => $cookie['init'], '%uid' => $account->uid));
         }
         else {
-          // Username and email matched, but init belonged to a DIFFERENT account.
+          // Username and email matched,
+          // but init belonged to a DIFFERENT account.
           // Something got seriously tangled up.
           watchdog('bakery', 'Accounts mixed up! Username %user and init %init disagree with each other!', array('%user' => $account->name, '%init' => $cookie['init']), WATCHDOG_CRITICAL);
         }
@@ -1135,13 +1158,14 @@ function _bakery_taste_chocolatechip_cookie() {
     _bakery_eat_cookie();
   }
 
-  // No cookie or invalid cookie
+  // No cookie or invalid cookie.
   if (!$cookie) {
     global $user;
     // Log out users that have lost their SSO cookie, with the exception of
     // UID 1 and any applied roles with permission to bypass.
     if ($user->uid > 1) {
-      // This runs for logged in users. Those folks are going to get a full bootstrap anyway so this isn't a problem.
+      // This runs for logged in users. Those folks are going to get a full
+      // bootstrap anyway so this isn't a problem.
       drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
       if (!user_access('bypass bakery')) {
         watchdog('bakery', 'Logging out the user with the bad cookie.');
@@ -1172,7 +1196,7 @@ function bakery_taste_stroopwafel_cookie() {
 }
 
 /**
- * Create a new cookie for identification
+ * Create a new cookie for identification.
  */
 function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
   $key = variable_get('bakery_key', '');
@@ -1194,6 +1218,9 @@ function _bakery_bake_chocolatechip_cookie($name, $mail, $init) {
   }
 }
 
+/**
+ * Get data from cookie.
+ */
 function bakery_taste_oatmeal_cookie() {
   $key = variable_get('bakery_key', '');
   $type = _bakery_cookie_name('OATMEAL');
@@ -1208,7 +1235,7 @@ function bakery_taste_oatmeal_cookie() {
 }
 
 /**
- * Create a cookie for passing information between sites for registration and login.
+ * Create a cookie for passing information between sites.
  */
 function bakery_bake_oatmeal_cookie($name, $data) {
   $key = variable_get('bakery_key', '');
@@ -1238,26 +1265,27 @@ function bakery_bake_oatmeal_cookie($name, $data) {
 }
 
 /**
- * Menu callback, invoked on the slave
+ * Menu callback, invoked on the slave.
  */
 function bakery_eat_stroopwafel_cookie() {
-  // the session got set during validation
+  // The session got set during validation.
   $stroopwafel = $_SESSION['bakery'];
   unset($_SESSION['bakery']);
 
   $init = _bakery_init_field($stroopwafel['uid']);
 
-  // check if the user exists.
+  // Check if the user exists.
   $account = user_load_multiple(array(), array('init' => $init));
   if (empty($account)) {
-    // user not present
+    // User not present.
     $message = t('Account not found on %slave.', array('%slave' => variable_get('site_name', '')));
   }
   else {
     $account = reset($account);
     drupal_add_http_header('X-Drupal-bakery-UID', $account->uid);
 
-    // If profile field is enabled we manually save profile fields along the way.
+    // If profile field is enabled
+    // we manually save profile fields along the way.
     $fields = array();
     $watchdog_message = array();
     $watchdog_variables = array();
@@ -1343,10 +1371,14 @@ function bakery_eat_thinmint_cookie() {
 /**
  * Request account information from master to create account locally.
  *
- * @param string $name the username or e-mail to request information for to create.
- * @param boolean $or_email load account by name or email. Useful for getting
- *  account data from a password request where you get name or email.
- * @return The newly created local UID or FALSE.
+ * @param string $name
+ *   The username or e-mail to request information for to create.
+ * @param bool $or_email
+ *   Load account by name or email. Useful for getting account data
+ *   from a password request where you get name or email.
+ *
+ * @return mixed
+ *   The newly created local UID or FALSE.
  */
 function bakery_request_account($name, $or_email = FALSE) {
   global $base_url;
@@ -1503,7 +1535,7 @@ function bakery_eat_gingerbread_cookie() {
 }
 
 /**
- * Destroy unwanted cookies
+ * Destroy unwanted cookies.
  */
 function _bakery_eat_cookie($type = 'CHOCOLATECHIP') {
   $cookie_secure = ini_get('session.cookie_secure');
@@ -1532,9 +1564,11 @@ function _bakery_init_field_url($init) {
 /**
  * Encryption handler.
  *
- * @param $text, The text to be encrypted.
+ * @param string $text
+ *   The text to be encrypted.
  *
- * @return Encryped text.
+ * @return string
+ *   Encryped text.
  */
 function bakery_encrypt($text) {
   $key = variable_get('bakery_key', '');
@@ -1557,9 +1591,11 @@ function bakery_encrypt($text) {
 /**
  * Decryption handler.
  *
- * @param $text, The data to be decrypted.
+ * @param string $text
+ *   The data to be decrypted.
  *
- * @return Decrypted text.
+ * @return string
+ *   Decrypted text.
  */
 function bakery_decrypt($text) {
   $key = variable_get('bakery_key', '');
@@ -1587,14 +1623,14 @@ function bakery_decrypt($text) {
  * updates the login timestamp in the database, invokes hook_user('login'),
  * and regenerates the session.
  *
- * @param $account
- *    An authenticated user object to be set as the currently logged
- *    in user.
- * @param $edit
- *    The array of form values submitted by the user, if any.
- *    This array is passed to hook_user op login.
- * @return boolean
- *    TRUE if the login succeeds, FALSE otherwise.
+ * @param object $account
+ *   An authenticated user object to be set as the currently logged in user.
+ * @param array $edit
+ *   The array of form values submitted by the user, if any.
+ *   This array is passed to hook_user op login.
+ *
+ * @return bool
+ *   TRUE if the login succeeds, FALSE otherwise.
  */
 function bakery_user_external_login($account, $edit = array()) {
   $form = drupal_get_form('user_login');
@@ -1654,7 +1690,7 @@ function _bakery_user_logout() {
   session_destroy();
   module_invoke_all('user_logout', $user);
 
-  // Load the anonymous user
+  // Load the anonymous user.
   $user = drupal_anonymous_user();
 
   // We want to redirect the user to his original destination.
@@ -1773,7 +1809,8 @@ function bakery_uncrumble($form, &$form_state) {
 function bakery_uncrumble_validate($form, &$form_state) {
   // Have to include password.inc for user_check_password().
   require_once DRUPAL_ROOT . '/' . variable_get('password_inc', 'includes/password.inc');
-  // We are ignoring blocked status on purpose. The user is being repaired, not logged in.
+  // We are ignoring blocked status on purpose.
+  // The user is being repaired, not logged in.
   $account = user_load_by_name($form_state['values']['name']);
   if (!($account && $account->uid) || !user_check_password($form_state['values']['pass'], $account)) {
     watchdog('bakery', 'Login attempt failed for %user while running uncrumble.', array('%user' => $form_state['values']['name']));
@@ -1785,6 +1822,9 @@ function bakery_uncrumble_validate($form, &$form_state) {
   }
 }
 
+/**
+ * Submit handler for 'bakery_uncrumble' form.
+ */
 function bakery_uncrumble_submit($form, &$form_state) {
   $account = $form_state['bakery_uncrumble_account'];
   unset($form_state['bakery_uncrumble_account']);
@@ -1802,11 +1842,11 @@ function bakery_uncrumble_submit($form, &$form_state) {
 /**
  * Save UID provided by a slave site. Should only be used on the master site.
  *
- * @param $account
+ * @param object $account
  *   A local user object.
- * @param $slave
+ * @param string $slave
  *   The URL of the slave site.
- * @param $slave_uid
+ * @param integer $slave_uid
  *   The corresponding UID on the slave site.
  */
 function _bakery_save_slave_uid($account, $slave, $slave_uid) {
