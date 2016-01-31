@@ -199,7 +199,10 @@ function bakery_user_update(&$edit, $account, $category) {
       );
       $result = drupal_http_request($slave . 'bakery/update', $options);
       if ($result->code != 200) {
-        drupal_set_message(t('Error %error for site at %url', array('%error' => $result->code .' '. $result->error, '%url' => $slave)));
+        drupal_set_message(t('Error %error for site at %url', array(
+          '%error' => $result->code . ' ' . $result->error,
+          '%url' => $slave,
+        )));
       }
       else {
         if (user_access('administer bakery')) {
@@ -309,7 +312,10 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
         if (arg(0) == 'admin') {
           // Admin create user form. Add a note about account synchronization.
           $form['account']['bakery_help'] = array(
-            '#markup' => t('<strong>Note:</strong> Only use this form to create accounts for users who exist on <a href="!url">@master</a> and not on this site. Be sure to use the exact same username and e-mail for the account here that they have on @master.', array('!url' => variable_get('bakery_master', 'http://drupal.org'), '@master' => variable_get('bakery_master', 'http://drupal.org'))),
+            '#markup' => t('<strong>Note:</strong> Only use this form to create accounts for users who exist on <a href="!url">@master</a> and not on this site. Be sure to use the exact same username and e-mail for the account here that they have on @master.', array(
+              '!url' => variable_get('bakery_master', 'http://drupal.org'),
+              '@master' => variable_get('bakery_master', 'http://drupal.org'),
+            )),
             '#weight' => -100,
           );
         }
@@ -410,7 +416,13 @@ function _bakery_reset_submit($form, &$form_state) {
     $data = bakery_bake_data($payload);
     $payload = drupal_http_build_query(array($type => $data));
     // Push validation to master.
-    $http_options = array('method' => 'POST', 'data' => $payload, 'headers' => array('Content-Type' => 'application/x-www-form-urlencoded; charset=utf-8'));
+    $http_options = array(
+      'method' => 'POST',
+      'data' => $payload,
+      'headers' => array(
+        'Content-Type' => 'application/x-www-form-urlencoded; charset=utf-8',
+      ),
+    );
     $result = drupal_http_request($master . 'bakery/validate', $http_options);
   }
 
@@ -424,8 +436,11 @@ function _bakery_reset_submit($form, &$form_state) {
     $edit = array('name' => $user->name);
     bakery_user_authenticate_finalize($edit);
     // Inform them that they need to reset their password.
-    drupal_set_message(t('You have just used your one-time login link. It is no longer necessary to use this link to login. Please change your password at <a href="!url">@master</a>.', array('!url' => check_url(_bakery_init_field_url($user->init)), '@master' => variable_get('bakery_master', ''))));
-    drupal_goto('user/'. $user->uid);
+    drupal_set_message(t('You have just used your one-time login link. It is no longer necessary to use this link to login. Please change your password at <a href="!url">@master</a>.', array(
+      '!url' => check_url(_bakery_init_field_url($user->init)),
+      '@master' => variable_get('bakery_master', ''),
+    )));
+    drupal_goto('user/' . $user->uid);
   }
   else {
     drupal_goto('user/login');
@@ -567,7 +582,14 @@ function bakery_settings($form, &$form_state) {
   $default = variable_get('bakery_supported_fields', array('mail' => 'mail', 'name' => 'name'));
   $default['mail'] = 'mail';
   $default['name'] = 'name';
-  $options = array('name' => t('username'), 'mail' => t('e-mail'), 'status' => t('status'), 'picture' => t('user picture'), 'language' => t('language'), 'signature' => t('signature'),);
+  $options = array(
+    'name' => t('username'),
+    'mail' => t('e-mail'),
+    'status' => t('status'),
+    'picture' => t('user picture'),
+    'language' => t('language'),
+    'signature' => t('signature'),
+  );
   if (module_exists('profile')) {
     $result = db_query('SELECT name, title FROM {profile_field} ORDER BY category, weight');
     foreach ($result as $field) {
@@ -598,9 +620,11 @@ function bakery_settings_submit($form, &$form_state) {
   // instead.)
   variable_set('menu_rebuild_needed', TRUE);
 
-  // Updating of data on slave sites will not work unless the url of the master site has a trailing slash.
-  // We now remove the trailing slash (if present) and concatenate with a new trailing slash.
-  $form_state['values']['bakery_master'] = trim($form_state['values']['bakery_master'], '/') .'/';
+  // Updating of data on slave sites will not work unless
+  // the url of the master site has a trailing slash.
+  // We now remove the trailing slash (if present)
+  // and concatenate with a new trailing slash.
+  $form_state['values']['bakery_master'] = trim($form_state['values']['bakery_master'], '/') . '/';
 
   // The list of slave sites needs transforming from a text string into
   // array for storage.
@@ -678,7 +702,10 @@ function bakery_register() {
       // Set some info to return to the slave.
       $data['uid'] = $account->uid;
       $data['mail'] = $mail;
-      watchdog('user', 'New external user: %name using module bakery from slave !slave.', array('%name' => $account->name, '!slave' => $cookie['slave']), WATCHDOG_NOTICE, l(t('edit'), 'user/'. $account->uid .'/edit'));
+      watchdog('user', 'New external user: %name using module bakery from slave !slave.', array(
+        '%name' => $account->name,
+        '!slave' => $cookie['slave'],
+      ), WATCHDOG_NOTICE, l(t('edit'), 'user/' . $account->uid . '/edit'));
 
       // Redirect to slave.
       if (!variable_get('user_email_verification', TRUE)) {
@@ -1057,7 +1084,9 @@ function _bakery_taste_chocolatechip_cookie() {
         if ($count > 1) {
           // Uh oh.
           watchdog('bakery', 'Account uniqueness problem: Multiple users found with init %init.', array('%init' => $cookie['init']), WATCHDOG_ERROR);
-          drupal_set_message(t('Account uniqueness problem detected. <a href="@contact">Please contact the site administrator.</a>', array('@contact' => variable_get('bakery_master', 'http://drupal.org/') .'contact')), 'error');
+          drupal_set_message(t('Account uniqueness problem detected. <a href="@contact">Please contact the site administrator.</a>', array(
+            '@contact' => variable_get('bakery_master', 'http://drupal.org/') . 'contact')
+          ), 'error');
         }
         if ($count == 1) {
           $account = user_load_multiple(array(), array('init' => $cookie['init']));
@@ -1065,7 +1094,13 @@ function _bakery_taste_chocolatechip_cookie() {
             $account = reset($account);
           }
           if ($account) {
-            watchdog('bakery', 'Fixing out of sync uid %uid. Changed name %name_old to %name_new, mail %mail_old to %mail_new.', array('%uid' => $account->uid, '%name_old' => $account->name, '%name_new' => $cookie['name'], '%mail_old' => $account->mail, '%mail_new' => $cookie['mail']));
+            watchdog('bakery', 'Fixing out of sync uid %uid. Changed name %name_old to %name_new, mail %mail_old to %mail_new.', array(
+              '%uid' => $account->uid,
+              '%name_old' => $account->name,
+              '%name_new' => $cookie['name'],
+              '%mail_old' => $account->mail,
+              '%mail_new' => $cookie['mail'],
+            ));
             user_save($account, array('name' => $cookie['name'], 'mail' => $cookie['mail']));
             $account = user_load_multiple(array(), array('name' => $cookie['name'], 'mail' => $cookie['mail']));
             $account = reset($account);
@@ -1113,7 +1148,10 @@ function _bakery_taste_chocolatechip_cookie() {
           }
         }
         else {
-          drupal_set_message(t('Your user account on %site appears to have problems. Would you like to try to <a href="@url">repair it yourself</a>?', array('%site' => variable_get('site_name', 'Drupal'), '@url' => url('bakery/repair'))));
+          drupal_set_message(t('Your user account on %site appears to have problems. Would you like to try to <a href="@url">repair it yourself</a>?', array(
+            '%site' => variable_get('site_name', 'Drupal'),
+            '@url' => url('bakery/repair'),
+          )));
           drupal_set_message(filter_xss_admin(variable_get('bakery_help_text', 'Otherwise you can contact the site administrators.')));
           $_SESSION['BAKERY_CRUMBLED'] = TRUE;
         }
@@ -1132,7 +1170,11 @@ function _bakery_taste_chocolatechip_cookie() {
           db_update('users')->fields(array('init' => $cookie['init']))
             ->condition('uid', $account->uid)
             ->execute();
-          watchdog('bakery', 'uid %uid out of sync. Changed init field from %oldinit to %newinit', array('%oldinit' => $account->init, '%newinit' => $cookie['init'], '%uid' => $account->uid));
+          watchdog('bakery', 'uid %uid out of sync. Changed init field from %oldinit to %newinit', array(
+            '%oldinit' => $account->init,
+            '%newinit' => $cookie['init'],
+            '%uid' => $account->uid,
+          ));
         }
         else {
           // Username and email matched,
@@ -1435,7 +1477,13 @@ function bakery_request_account($name, $or_email = FALSE) {
   $data = bakery_bake_data($payload);
   $payload = drupal_http_build_query(array($type => $data));
   // Make request to master for account information.
-  $http_options = array('method' => 'POST', 'data' => $payload, 'headers' => array('Content-Type' => 'application/x-www-form-urlencoded; charset=utf-8'));
+  $http_options = array(
+    'method' => 'POST',
+    'data' => $payload,
+    'headers' => array(
+      'Content-Type' => 'application/x-www-form-urlencoded; charset=utf-8',
+    ),
+  );
   $result = drupal_http_request($master . 'bakery/create', $http_options);
   // Parse result and create account.
   if ($result->code != 200) {
@@ -1716,7 +1764,11 @@ function _bakery_user_logout() {
   $get['no_cache'] = time();
   // Build the URL we'll redirect to. We set alias to TRUE so as not to try and
   // hit the unavailable database looking for an alias.
-  $url = url($destination, array('query' => $get, 'absolute' => TRUE, 'alias' => TRUE));
+  $url = url($destination, array(
+    'query' => $get,
+    'absolute' => TRUE,
+    'alias' => TRUE,
+  ));
   // Remove newlines from the URL to avoid header injection attacks.
   $url = str_replace(array("\n", "\r"), '', $url);
   // We can't use drupal_goto because it assumes it's in a later boot phase. Set
@@ -1786,19 +1838,29 @@ function bakery_uncrumble($form, &$form_state) {
     '#required' => TRUE,
   );
 
-  $form['submit'] = array('#type' => 'submit', '#value' => t('Repair account'), '#weight' => 2);
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Repair account'),
+    '#weight' => 2,
+  );
 
   $help = '';
 
   $count = db_select('users', 'u')->fields('u', array('uid'))->condition('init', $cookie['init'], '=')
     ->countQuery()->execute()->fetchField();
   if ($count > 1) {
-    drupal_set_message(t('Multiple accounts are associated with your master account. This must be fixed manually. <a href="@contact">Please contact the site administrator.</a>', array('%email' => $cookie['mail'], '@contact' => variable_get('bakery_master', 'http://drupal.org/') .'contact')));
+    drupal_set_message(t('Multiple accounts are associated with your master account. This must be fixed manually. <a href="@contact">Please contact the site administrator.</a>', array(
+      '%email' => $cookie['mail'],
+      '@contact' => variable_get('bakery_master', 'http://drupal.org/') . 'contact',
+    )));
     $form['pass']['#disabled'] = TRUE;
     $form['submit']['#disabled'] = TRUE;
   }
-  else if ($samename && $samemail && $samename->uid != $samemail->uid) {
-    drupal_set_message(t('Both an account with matching name and an account with matching email address exist, but they are different accounts. This must be fixed manually. <a href="@contact">Please contact the site administrator.</a>', array('%email' => $cookie['mail'], '@contact' => variable_get('bakery_master', 'http://drupal.org/') .'contact')));
+  elseif ($samename && $samemail && $samename->uid != $samemail->uid) {
+    drupal_set_message(t('Both an account with matching name and an account with matching email address exist, but they are different accounts. This must be fixed manually. <a href="@contact">Please contact the site administrator.</a>', array(
+      '%email' => $cookie['mail'],
+      '@contact' => variable_get('bakery_master', 'http://drupal.org/') . 'contact',
+    )));
     $form['pass']['#disabled'] = TRUE;
     $form['submit']['#disabled'] = TRUE;
   }
@@ -1831,8 +1893,12 @@ function bakery_uncrumble_validate($form, &$form_state) {
   $account = user_load_by_name($form_state['values']['name']);
   if (!($account && $account->uid) || !user_check_password($form_state['values']['pass'], $account)) {
     watchdog('bakery', 'Login attempt failed for %user while running uncrumble.', array('%user' => $form_state['values']['name']));
-    // Can't pretend that it was the "username or password" so let's be helpful instead.
-    form_set_error('pass', t('Sorry, unrecognized password. If you have forgotten your %site password, please <a href="@contact">contact the site administrator.</a>', array('%site' => variable_get('site_name', 'Drupal'), '@contact' => variable_get('bakery_master', 'http://drupal.org/') .'contact')));
+    // Can't pretend that it was the "username or password"
+    // so let's be helpful instead.
+    form_set_error('pass', t('Sorry, unrecognized password. If you have forgotten your %site password, please <a href="@contact">contact the site administrator.</a>', array(
+      '%site' => variable_get('site_name', 'Drupal'),
+      '@contact' => variable_get('bakery_master', 'http://drupal.org/') . 'contact',
+    )));
   }
   else {
     $form_state['bakery_uncrumble_account'] = $account;
@@ -1849,9 +1915,19 @@ function bakery_uncrumble_submit($form, &$form_state) {
   db_update('users')->fields(array('init' => $cookie['init']))
     ->condition('uid', $account->uid, '=')
     ->execute();
-  watchdog('bakery', 'uncrumble changed init field for uid %uid from %oldinit to %newinit', array('%oldinit' => $account->init, '%newinit' => $cookie['init'], '%uid' => $account->uid));
+  watchdog('bakery', 'uncrumble changed init field for uid %uid from %oldinit to %newinit', array(
+    '%oldinit' => $account->init,
+    '%newinit' => $cookie['init'],
+    '%uid' => $account->uid,
+  ));
   user_save($account, array('name' => $cookie['name'], 'mail' => $cookie['mail']));
-  watchdog('bakery', 'uncrumble updated name %name_old to %name_new, mail %mail_old to %mail_new on uid %uid.', array('%name_old' => $account->name, '%name_new' => $cookie['name'], '%mail_old' => $account->mail, '%mail_new' => $cookie['mail'], '%uid' => $account->uid));
+  watchdog('bakery', 'uncrumble updated name %name_old to %name_new, mail %mail_old to %mail_new on uid %uid.', array(
+    '%name_old' => $account->name,
+    '%name_new' => $cookie['name'],
+    '%mail_old' => $account->mail,
+    '%mail_new' => $cookie['mail'],
+    '%uid' => $account->uid,
+  ));
   drupal_set_message(t('Your account has been repaired.'));
   $form_state['redirect'] = 'user';
 }
