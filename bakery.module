@@ -197,7 +197,7 @@ function bakery_user_update(&$edit, $account, $category) {
         'method' => 'POST',
         'data' => $payload,
       );
-      $result = drupal_http_request($slave .'bakery/update', $options);
+      $result = drupal_http_request($slave . 'bakery/update', $options);
       if ($result->code != 200) {
         drupal_set_message(t('Error %error for site at %url', array('%error' => $result->code .' '. $result->error, '%url' => $slave)));
       }
@@ -227,7 +227,8 @@ function bakery_user_view($account, $view_mode, $langcode) {
       $account->content['summary']['master_profile'] = array(
         '#type' => 'user_profile_item',
         '#title' => t('Primary profile'),
-        '#markup' => l(t('Profile on primary site'), substr($init_url, 0, strlen($init_url) - 5)), // Take everything up to '/edit'.
+        // Take everything up to '/edit'.
+        '#markup' => l(t('Profile on primary site'), substr($init_url, 0, strlen($init_url) - 5)),
         '#access' => user_access('access user profiles'),
       );
     }
@@ -260,10 +261,11 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
         }
         foreach (variable_get('bakery_supported_fields', array('mail' => 'mail', 'name' => 'name')) as $type => $value) {
           if ($value) {
-            switch($type) {
+            switch ($type) {
               case 'mail':
               case 'name':
                 break;
+
               case 'picture':
                 if (isset($form['picture'])) {
                   $form['picture']['picture_delete']['#access'] = FALSE;
@@ -271,25 +273,28 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
                   $form['picture']['#description'] = t('You can change the image <a href="!url">at the master site</a>.', array('!url' => check_url($init_url)));
                 }
                 break;
+
               case 'language':
                 if (isset($form['locale'][$type])) {
                   $form['locale'][$type]['#disabled'] = TRUE;
-                  $form['locale'][$type]['#description'] .= ' '. t('You can change the language setting <a href="!url">at the master site</a>.', array('!url' => check_url($init_url)));
+                  $form['locale'][$type]['#description'] .= ' ' . t('You can change the language setting <a href="!url">at the master site</a>.', array('!url' => check_url($init_url)));
                 }
                 break;
+
               case 'signature':
                 if (isset($form['signature_settings'][$type])) {
                   $form['signature_settings'][$type]['#disabled'] = TRUE;
-                  $form['signature_settings'][$type]['#description'] .= ' '. t('You can change the signature <a href="!url">at the master site</a>.', array('!url' => check_url($init_url)));
+                  $form['signature_settings'][$type]['#description'] .= ' ' . t('You can change the signature <a href="!url">at the master site</a>.', array('!url' => check_url($init_url)));
                 }
                 break;
+
               default:
                 if (isset($form[$type])) {
                   $form[$type]['#disabled'] = TRUE;
                 }
                 if (isset($form[$type][$type])) {
                   $form[$type][$type]['#disabled'] = TRUE;
-                  $form[$type][$type]['#description'] .= ' '. t('You can change this setting <a href="!url">at the master site</a>.', array('!url' => check_url($init_url)));
+                  $form[$type][$type]['#description'] .= ' ' . t('You can change this setting <a href="!url">at the master site</a>.', array('!url' => check_url($init_url)));
                 }
                 break;
             }
@@ -297,6 +302,7 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
         }
       }
       break;
+
     case 'user_register_form':
       // Provide register ability on the slave sites.
       if (!variable_get('bakery_is_master', FALSE)) {
@@ -320,6 +326,7 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
         }
       }
       break;
+
     case 'user_pass':
       // Slave sites need to make sure the local account exists, if the master
       // account exists.
@@ -327,6 +334,7 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
         array_unshift($form['#validate'], '_bakery_pass_validate');
       }
       break;
+
     case 'user_pass_reset':
       // As part of the slave site registration we need to handle email
       // validation and password reset.
@@ -337,6 +345,7 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
         unset($form['#action']);
       }
       break;
+
     case 'user_login_block':
     case 'user_login':
       // Provide login ability on the slave sites.
@@ -345,10 +354,11 @@ function bakery_form_alter(&$form, $form_state, $form_id) {
         // and test if account exists. We want to check if the account exists on
         // the master instead.
         $form['#validate'] = array_diff($form['#validate'], array('user_login_authenticate_validate', 'user_login_final_validate'));
-        // Also replace the submit handler with our own to set a redirect cookie.
+        // Replace the submit handler with our own to set a redirect cookie.
         $form['#submit'] = array('_bakery_login_submit');
       }
       break;
+
     default:
       break;
   }
@@ -392,7 +402,8 @@ function _bakery_reset_submit($form, &$form_state) {
     $type = 'thinmint';
     $payload = array();
     $payload['name'] = $account->name;
-    $payload['slave'] = rtrim($base_url, '/') . '/'; // Match how slaves are set on the master.
+    // Match how slaves are set on the master.
+    $payload['slave'] = rtrim($base_url, '/') . '/';
     $payload['uid'] = $account->uid;
     $payload['timestamp'] = $_SERVER['REQUEST_TIME'];
     $payload['type'] = $type;
@@ -462,7 +473,7 @@ function _bakery_register_submit($form, &$form_state) {
   form_state_values_clean($form_state);
   // Save values to cookie.
   $data = $form_state['values'];
-  _bakery_save_destination_param($form , $data);
+  _bakery_save_destination_param($form, $data);
   unset($_GET['destination']);
 
   // Store name and email in case of error and return from master.
@@ -489,7 +500,7 @@ function _bakery_login_submit($form, &$form_state) {
   }
 
   $data = $form_state['values'];
-  _bakery_save_destination_param($form , $data);
+  _bakery_save_destination_param($form, $data);
   unset($_GET['destination']);
   // Save query parameters to be available when user returns from master.
   $data['query'] = drupal_get_query_parameters();
@@ -601,7 +612,7 @@ function bakery_settings_submit($form, &$form_state) {
     // For each entry, remove the trailing slash (if present)
     // and concatenate with a new trailing slash.
     foreach ($form_state['values']['bakery_slaves'] as &$slave) {
-      $slave = trim($slave, '/') .'/';
+      $slave = trim($slave, '/') . '/';
     }
   }
   else {
@@ -740,12 +751,12 @@ function bakery_register_return() {
         // If the user must validate their email then we need to create an
         // account for them on the slave site.
         $new = array(
-            'name' => $cookie['name'],
-            'mail' => $cookie['data']['mail'],
-            'init' => _bakery_init_field($cookie['data']['uid']),
-            'status' => 1,
-            'pass' => user_password(),
-          );
+          'name' => $cookie['name'],
+          'mail' => $cookie['data']['mail'],
+          'init' => _bakery_init_field($cookie['data']['uid']),
+          'status' => 1,
+          'pass' => user_password(),
+        );
         $account = user_save(new stdClass(), $new);
         // Notify the user that they need to validate their email.
         _user_mail_notify('register_no_approval_required', $account);
@@ -893,7 +904,7 @@ function bakery_login_return() {
 function bakery_user_page() {
   global $user;
   if ($user->uid) {
-    menu_set_active_item('user/'. $user->uid);
+    menu_set_active_item('user/' . $user->uid);
     return menu_execute_active_handler();
   }
 }
@@ -1231,6 +1242,7 @@ function bakery_taste_oatmeal_cookie() {
   if (($data = bakery_validate_data($_COOKIE[$type], $type)) !== FALSE) {
     return $data;
   }
+
   return FALSE;
 }
 
@@ -1252,7 +1264,8 @@ function bakery_bake_oatmeal_cookie($name, $data) {
     }
     else {
       $cookie['master'] = 0;
-      $cookie['slave'] = $base_url . '/'; // Match the way slaves are set in Bakery settings, with ending slash.
+      // Match the way slaves are set in Bakery settings, with ending slash.
+      $cookie['slave'] = $base_url . '/';
     }
     $cookie_secure = !variable_get('bakery_loose_ssl', FALSE) && ini_get('session.cookie_secure');
     $type = _bakery_cookie_name('OATMEAL');
@@ -1414,7 +1427,8 @@ function bakery_request_account($name, $or_email = FALSE) {
   $payload = array();
   $payload['name'] = $name;
   $payload['or_email'] = $or_email;
-  $payload['slave'] = rtrim($base_url, '/') . '/'; // Match how slaves are set on the master.
+  // Match how slaves are set on the master.
+  $payload['slave'] = rtrim($base_url, '/') . '/';
   $payload['uid'] = $account->uid;
   $payload['timestamp'] = $_SERVER['REQUEST_TIME'];
   $payload['type'] = $type;
@@ -1508,7 +1522,8 @@ function bakery_eat_gingerbread_cookie() {
     $payload = array();
     $payload['name'] = $account->name;
     $payload['mail'] = $account->mail;
-    $payload['uid'] = $account->uid; // For use in slave init field.
+    // For use in slave init field.
+    $payload['uid'] = $account->uid;
     // Add any synced fields.
     foreach (variable_get('bakery_supported_fields', array('mail' => 'mail', 'name' => 'name')) as $type => $enabled) {
       if ($enabled && $account->$type) {
@@ -1558,7 +1573,7 @@ function _bakery_init_field($uid) {
  */
 function _bakery_init_field_url($init) {
   $scheme = parse_url(variable_get('bakery_master', 'http://drupal.org/'), PHP_URL_SCHEME);
-  return $scheme . '://'. $init;
+  return $scheme . '://' . $init;
 }
 
 /**
@@ -1641,7 +1656,7 @@ function bakery_user_external_login($account, $edit = array()) {
   }
 
   // Check if user is blocked or denied by access rules.
-  user_login_name_validate($form, $state, (array)$account);
+  user_login_name_validate($form, $state, (array) $account);
   if (form_get_errors()) {
     // Invalid login.
     return FALSE;
@@ -1715,12 +1730,14 @@ function _bakery_user_logout() {
  */
 function bakery_uncrumble_access() {
   global $user;
+
   $access = FALSE;
   if (!$user->uid) {
     if (isset($_SESSION['BAKERY_CRUMBLED']) && $_SESSION['BAKERY_CRUMBLED']) {
       $access = TRUE;
     }
   }
+
   return $access;
 }
 
@@ -1785,14 +1802,14 @@ function bakery_uncrumble($form, &$form_state) {
     $form['pass']['#disabled'] = TRUE;
     $form['submit']['#disabled'] = TRUE;
   }
-  else if ($samename) {
+  elseif ($samename) {
     $help = t("An account with a matching username was found. Repairing it will reset the email address to match your master account. If this is the correct account, please enter your %site password.", array('%site' => $site_name));
     // This is a borderline information leak.
-    //$form['mail']['#value'] = $samename->mail;
+    // $form['mail']['#value'] = $samename->mail;
     $form['mail']['#value'] = t('<em>*hidden*</em>');
     $form['mail']['#description'] = t('Will change to %new.', array('%new' => $cookie['mail']));
   }
-  else if ($samemail) {
+  elseif ($samemail) {
     $help = t("An account with a matching email address was found. Repairing it will reset the username to match your master account. If this is the correct account, please enter your %site password.", array('%site' => $site_name));
     $form['name']['#value'] = $samemail->name;
     $form['name']['#description'] = t('Will change to %new.', array('%new' => $cookie['name']));

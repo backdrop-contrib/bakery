@@ -31,7 +31,7 @@
  */
 function hook_bakery_transmit($edit, $account, $category) {
   return array(
-    'example_field' => 'example_value'
+    'example_field' => 'example_value',
   );
 }
 
@@ -53,7 +53,7 @@ function hook_bakery_receive($account, $cookie) {
   if (!empty($cookie['example_field'])) {
     db_update('example_table')
       ->fields(array(
-        'example_field' => $cookie['example_field']
+        'example_field' => $cookie['example_field'],
         ))
       ->execute();
   }
