@@ -32,7 +32,8 @@ function bakery_drush_command() {
  * Drush command for adding new slave.
  */
 function drush_bakery_add_slave($slave) {
-  $slaves = variable_get('bakery_slaves', array());
+  $config = config('bakery.settings');
+  $slaves = $config->get('bakery_slaves');
   $slaves[] = $slave;
-  variable_set('bakery_slaves', $slaves);
+  $config->set('bakery_slaves', $slaves);
 }

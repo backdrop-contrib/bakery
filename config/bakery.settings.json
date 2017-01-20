@@ -1,0 +1,15 @@
+{
+    "_config_name": "bakery.settings",
+    "bakery_key": "",
+    "bakery_domain": ","
+    "bakery_is_master": 0,
+    "bakery_master": 'http://backdrop.org/',
+    "bakery_slaves": [],
+    "bakery_supported_fields": {
+        "mail": "mail",
+        "name": "name"
+    },
+    "bakery_help_text": "Otherwise you can contact the site administrators.",
+    "bakery_freshness": "",
+    "bakery_cookie_extension": ""
+}

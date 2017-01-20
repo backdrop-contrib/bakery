@@ -1,6 +1,7 @@
 name = Bakery
 description = Provides single-sign-on support across second-level domains.
-core = 7.x
+backdrop = 1.x
+type = module
 files[] = bakery.module
 php = 5.1.2
 

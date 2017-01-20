@@ -38,18 +38,37 @@ function bakery_schema() {
 }
 
 /**
+ * Implements hook_install().
+ */
+function bakery_install() {
+  config_set('bakery.settings', 'bakery_freshness', ini_get('session.cookie_lifetime'));
+}
+
+/**
  * Implements hook_uninstall().
  *
  * Remove Bakery variables.
  */
-function bakery_uninstall() {
-  variable_del('bakery_key');
-  variable_del('bakery_domain');
-  variable_del('bakery_is_master');
-  variable_del('bakery_master');
-  variable_del('bakery_slaves');
-  variable_del('bakery_supported_fields');
-  variable_del('bakery_help_text');
-  variable_del('bakery_freshness');
-  variable_del('bakery_cookie_extension');
+function bakery_update_1000() {
+  $config = config('bakery.settings');
+
+  $config->set('bakery_key', update_variable_get('bakery_key', ''));
+  $config->set('bakery_domain', update_variable_get('bakery_domain', ''));
+  $config->set('bakery_is_master', update_variable_get('bakery_is_master', 0));
+  $config->set('bakery_master', update_variable_get('bakery_master', 'http://backdrop.org/'));
+  $config->set('bakery_slaves', update_variable_get('bakery_slaves', array()));
+  $config->set('bakery_supported_fields', update_variable_get('bakery_supported_fields', array('mail' => 'mail', 'name' => 'name')));
+  $config->set('bakery_help_text', update_variable_get('bakery_help_text', 'Otherwise you can contact the site administrators.'));
+  $config->set('bakery_cookie_extension', update_variable_get('bakery_cookie_extension', ''));
+  $config->save();
+
+  update_variable_del('bakery_key');
+  update_variable_del('bakery_domain');
+  update_variable_del('bakery_is_master');
+  update_variable_del('bakery_master');
+  update_variable_del('bakery_slaves');
+  update_variable_del('bakery_supported_fields');
+  update_variable_del('bakery_help_text');
+  update_variable_del('bakery_freshness');
+  update_variable_del('bakery_cookie_extension');
 }
