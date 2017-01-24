@@ -33,7 +33,7 @@ function bakery_drush_command() {
  */
 function drush_bakery_add_slave($slave) {
   $config = config('bakery.settings');
-  $slaves = $config->get('bakery_slaves');
+  $slaves = $config->get('slaves');
   $slaves[] = $slave;
-  $config->set('bakery_slaves', $slaves);
+  $config->set('slaves', $slaves);
 }

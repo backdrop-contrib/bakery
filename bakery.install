@@ -41,7 +41,7 @@ function bakery_schema() {
  * Implements hook_install().
  */
 function bakery_install() {
-  config_set('bakery.settings', 'bakery_freshness', ini_get('session.cookie_lifetime'));
+  config_set('bakery.settings', 'freshness', ini_get('session.cookie_lifetime'));
 }
 
 /**
@@ -52,14 +52,14 @@ function bakery_install() {
 function bakery_update_1000() {
   $config = config('bakery.settings');
 
-  $config->set('bakery_key', update_variable_get('bakery_key', ''));
-  $config->set('bakery_domain', update_variable_get('bakery_domain', ''));
-  $config->set('bakery_is_master', update_variable_get('bakery_is_master', 0));
-  $config->set('bakery_master', update_variable_get('bakery_master', 'http://backdrop.org/'));
-  $config->set('bakery_slaves', update_variable_get('bakery_slaves', array()));
-  $config->set('bakery_supported_fields', update_variable_get('bakery_supported_fields', array('mail' => 'mail', 'name' => 'name')));
-  $config->set('bakery_help_text', update_variable_get('bakery_help_text', 'Otherwise you can contact the site administrators.'));
-  $config->set('bakery_cookie_extension', update_variable_get('bakery_cookie_extension', ''));
+  $config->set('key', update_variable_get('bakery_key', ''));
+  $config->set('domain', update_variable_get('bakery_domain', ''));
+  $config->set('is_master', update_variable_get('bakery_is_master', 0));
+  $config->set('master', update_variable_get('bakery_master', 'http://backdrop.org/'));
+  $config->set('slaves', update_variable_get('bakery_slaves', array()));
+  $config->set('supported_fields', update_variable_get('bakery_supported_fields', array('mail' => 'mail', 'name' => 'name')));
+  $config->set('help_text', update_variable_get('bakery_help_text', 'Otherwise you can contact the site administrators.'));
+  $config->set('cookie_extension', update_variable_get('bakery_cookie_extension', ''));
   $config->save();
 
   update_variable_del('bakery_key');
