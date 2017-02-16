@@ -537,6 +537,7 @@ function _bakery_login_submit($form, &$form_state) {
 function bakery_settings($form, &$form_state) {
   $config = config('bakery.settings');
   $form = array(
+    '#config' => 'bakery.settings',
     '#submit' => array('bakery_settings_submit'),
   );
 
@@ -611,9 +612,7 @@ function bakery_settings($form, &$form_state) {
     '#description' => t('Choose the profile fields that should be exported by the master and imported on the slaves. Username and E-mail are always exported. The correct export of individual fields may depend on the appropriate settings for other modules on both master and slaves. You need to configure this setting on both the master and the slaves.'),
   );
 
-  // Tell system_settings_form() to not set default_values
-  // since we have already done so.
-  return system_settings_form($form, FALSE);
+  return system_settings_form($form);
 }
 
 /**
