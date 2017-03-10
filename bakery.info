@@ -1,8 +1,6 @@
+type = module
 name = Bakery
 description = Provides single-sign-on support across second-level domains.
 backdrop = 1.x
-type = module
-files[] = bakery.module
-php = 5.1.2
 
 configure = admin/config/system/bakery
