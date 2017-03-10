@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @file
  * Module file for the Bakery.
@@ -156,12 +155,11 @@ function bakery_user_logout($account) {
 /**
  * Implements hook_user_presave().
  */
-function bakery_user_presave(&$edit, $account, $category) {
+function bakery_user_presave($account) {
   $config = config('bakery.settings');
   if ($config->get('is_master', 0)) {
-    // Invoke implementations of hook_bakery_transmit() for syncing arbitrary
-    // data.
-    $_SESSION['bakery']['data'] = module_invoke_all('bakery_transmit', $edit, $account, $category);
+    // Invoke hook_bakery_transmit() for syncing arbitrary data.
+    $_SESSION['bakery']['data'] = module_invoke_all('bakery_transmit', $account);
 
     // We store email/name if they changed. We want to wait with doing
     // anything else until the changes are saved locally.
@@ -176,7 +174,7 @@ function bakery_user_presave(&$edit, $account, $category) {
 /**
  * Implements hook_user_update().
  */
-function bakery_user_update(&$edit, $account, $category) {
+function bakery_user_update($account) {
   $config = config('bakery.settings');
   global $user;
   // We need to push changes.
@@ -200,7 +198,21 @@ function bakery_user_update(&$edit, $account, $category) {
         'method' => 'POST',
         'data' => $payload,
       );
-      $result = backdrop_http_request($slave . 'bakery/update', $options);
+
+      if ($config->get('bakery_insecure_ssl') == TRUE) {
+        $context = stream_context_create(array(
+          'ssl' => array(
+            'verify_peer' => FALSE,
+            'verify_depth' => 5,
+            'allow_self_signed' => TRUE,
+            'verify_peer_name' => FALSE,
+          )
+        ));
+        $options['context'] = $context;
+      }
+
+      $result = backdrop_http_request($slave .'bakery/update', $options);
+
       if ($result->code != 200) {
         backdrop_set_message(t('Error %error for site at %url', array(
           '%error' => $result->code . ' ' . $result->error,
@@ -429,6 +441,19 @@ function _bakery_reset_submit($form, &$form_state) {
         'Content-Type' => 'application/x-www-form-urlencoded; charset=utf-8',
       ),
     );
+
+    if ($config->get('bakery_insecure_ssl') == TRUE) {
+      $context = stream_context_create(array(
+        'ssl' => array(
+          'verify_peer' => FALSE,
+          'verify_depth' => 5,
+          'allow_self_signed' => TRUE,
+          'verify_peer_name' => FALSE,
+        )
+      ));
+      $http_options['context'] = $context;
+    }
+
     $result = backdrop_http_request($master . 'bakery/validate', $http_options);
   }
 
@@ -598,18 +623,13 @@ function bakery_settings($form, &$form_state) {
     'language' => t('language'),
     'signature' => t('signature'),
   );
-  if (module_exists('profile')) {
-    $result = db_query('SELECT name, title FROM {profile_field} ORDER BY category, weight');
-    foreach ($result as $field) {
-      $options[$field->name] = check_plain($field->title);
-    }
-  }
+
   $form['supported_fields'] = array(
     '#type' => 'checkboxes',
-    '#title' => 'Supported profile fields',
+    '#title' => 'Supported user account properties',
     '#default_value' => $default,
     '#options' => $options,
-    '#description' => t('Choose the profile fields that should be exported by the master and imported on the slaves. Username and E-mail are always exported. The correct export of individual fields may depend on the appropriate settings for other modules on both master and slaves. You need to configure this setting on both the master and the slaves.'),
+    '#description' => t('Choose the properties that should be exported by the master and imported on the slaves. Username and E-mail are always exported. The correct export of individual properties may depend on the appropriate settings for other modules on both master and slaves. You need to configure this setting on both the master and the slaves.'),
   );
 
   return system_settings_form($form);
@@ -842,19 +862,13 @@ function bakery_login() {
       // Check if account credentials are correct.
       $account = user_load_by_name($name);
       if (isset($account->uid)) {
-        // Check if the mail is denied.
-        if (backdrop_is_denied('user', $account->mail)) {
-          $errors['name'] = t('The name %name is registered using a reserved e-mail address and therefore could not be logged in.', array('%name' => $name));
-        }
-        else {
-          // Passed all checks, create identification cookie and log in.
-          $init = _bakery_init_field($account->uid);
-          _bakery_bake_chocolatechip_cookie($account->name, $account->mail, $init);
-          global $user;
-          $user = $account;
-          $edit = array('name' => $user->name);
-          bakery_user_authenticate_finalize($edit);
-        }
+        // Passed all checks, create identification cookie and log in.
+        $init = _bakery_init_field($account->uid);
+        _bakery_bake_chocolatechip_cookie($account->name, $account->mail, $init);
+        global $user;
+        $user = $account;
+        $edit = array('name' => $user->name);
+        bakery_user_authenticate_finalize($edit);
       }
       else {
         $errors['incorrect-credentials'] = 1;
@@ -1112,7 +1126,11 @@ function _bakery_taste_chocolatechip_cookie() {
               '%mail_old' => $account->mail,
               '%mail_new' => $cookie['mail'],
             ));
-            user_save($account, array('name' => $cookie['name'], 'mail' => $cookie['mail']));
+
+            $account->name = $cookie['name'];
+            $account->mail = $cookie['mail'];
+            $account->save();
+
             $account = user_load_multiple(array(), array('name' => $cookie['name'], 'mail' => $cookie['mail']));
             $account = reset($account);
           }
@@ -1122,6 +1140,7 @@ function _bakery_taste_chocolatechip_cookie() {
       // Create the account if it doesn't exist.
       if (!$account && !$config->get('is_master') && $cookie['master']) {
         $checks = TRUE;
+        // Other account with same email.
         $mail_count = db_select('users', 'u')->fields('u', array('uid'))
           ->condition('uid', $user->uid, '!=')
           ->condition('mail', '', '!=')
@@ -1130,6 +1149,7 @@ function _bakery_taste_chocolatechip_cookie() {
         if ($mail_count > 0) {
           $checks = FALSE;
         }
+        // Other account with same username.
         $name_count = db_select('users', 'u')->fields('u', array('uid'))
           ->condition('uid', $user->uid, '!=')
           ->where('LOWER(name) = LOWER(:name)', array(':name' => $cookie['name']))
@@ -1137,6 +1157,7 @@ function _bakery_taste_chocolatechip_cookie() {
         if ($name_count > 0) {
           $checks = FALSE;
         }
+        // Other account with same initial email.
         $init_count = db_select('users', 'u')->fields('u', array('uid'))
           ->condition('uid', $user->uid, '!=')
           ->condition('init', $cookie['init'], '=')
@@ -1357,7 +1378,6 @@ function bakery_eat_stroopwafel_cookie() {
 
     // If profile field is enabled
     // we manually save profile fields along the way.
-    $fields = array();
     $watchdog_message = array();
     $watchdog_variables = array();
     foreach ($config->get('supported_fields') as $type => $value) {
@@ -1365,19 +1385,16 @@ function bakery_eat_stroopwafel_cookie() {
         // If the field is set in the cookie it's being updated, otherwise we'll
         // populate $fields with the existing values so nothing is lost.
         if (isset($stroopwafel[$type])) {
-          $fields[$type] = $stroopwafel[$type];
+          $account->{$type} = $stroopwafel[$type];
           if (in_array($type, array('mail', 'name'))) {
             $watchdog_message[] = $type . ' %' . $type . '_old to %' . $type . '_new';
             $watchdog_variables['%' . $type . '_old'] = $account->$type;
             $watchdog_variables['%' . $type . '_new'] = $stroopwafel[$type];
           }
         }
-        else {
-          $fields[$type] = $account->$type;
-        }
       }
     }
-    $status = user_save($account, $fields);
+    $status = user_save($account);
     $uri = entity_uri('user', $account);
     $watchdog_message = '%name' . (empty($watchdog_message) ? '' : ': ' . implode(', ', $watchdog_message));
     $watchdog_variables['%name'] = $account->name;
@@ -1469,14 +1486,14 @@ function bakery_request_account($name, $or_email = FALSE) {
   $key = $config->get('key');
 
   // Save a stub account so we have a slave UID to send.
-  $new_account = array(
+  $account = new User(array(
     'name' => $name,
     'pass' => user_password(),
     'status' => 1,
     'init' => 'bakery_temp/' . mt_rand(),
-  );
-  $account = user_save(NULL, $new_account);
-  if (!$account) {
+  ));
+  $status = $account->save();
+  if ($status === FALSE) {
     watchdog('bakery', 'Unable to create stub account for @name', array('@name' => $name), WATCHDOG_ERROR);
     return FALSE;
   }
@@ -1501,6 +1518,19 @@ function bakery_request_account($name, $or_email = FALSE) {
       'Content-Type' => 'application/x-www-form-urlencoded; charset=utf-8',
     ),
   );
+
+  if ($config->get('bakery_insecure_ssl') == TRUE) {
+    $context = stream_context_create(array(
+      'ssl' => array(
+        'verify_peer' => FALSE,
+        'verify_depth' => 5,
+        'allow_self_signed' => TRUE,
+        'verify_peer_name' => FALSE,
+      )
+    ));
+    $http_options['context'] = $context;
+  }
+
   $result = backdrop_http_request($master . 'bakery/create', $http_options);
   // Parse result and create account.
   if ($result->code != 200) {
@@ -1518,22 +1548,20 @@ function bakery_request_account($name, $or_email = FALSE) {
   }
 
   // Valid response. Fill in details from master.
-  $new_account = array(
-    'name' => $cookie['name'],
-    'pass' => user_password(),
-    'mail' => $cookie['mail'],
-    'init' => _bakery_init_field($cookie['uid']),
-  );
+  $account->name = $cookie['name'];
+  $account->pass = user_password();
+  $account->mail = $cookie['mail'];
+  $account->init = _bakery_init_field($cookie['uid']);
   // Add any supported sync fields.
   foreach ($config->get('supported_fields') as $type => $enabled) {
     if ($enabled && isset($cookie[$type])) {
-      $new_account[$type] = $cookie[$type];
+      $account->{$type} = $cookie[$type];
     }
   }
-  // Create account.
-  $account = user_save($account, $new_account);
-  if ($account) {
-    watchdog('bakery', 'Created account for @name', array('@name' => $name));
+  // Update account.
+  $newstatus = $account->save();
+  if ($newstatus !== FALSE) {
+    watchdog('bakery', ' HI! Created account for @name', array('@name' => $name));
     // Invoke hook_bakery_receive().
     module_invoke_all('bakery_receive', $account, $cookie);
     return $account->uid;
@@ -1599,7 +1627,7 @@ function bakery_eat_gingerbread_cookie() {
 
     // Invoke implementations of hook_bakery_transmit() for syncing arbitrary
     // data.
-    $payload['data'] = module_invoke_all('bakery_transmit', NULL, $account);
+    $payload['data'] = module_invoke_all('bakery_transmit', $account);
 
     $payload['timestamp'] = $_SERVER['REQUEST_TIME'];
     // Respond with encrypted and signed account information.

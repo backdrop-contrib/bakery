@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @file
  * This file contains no working PHP code; it exists to provide additional
@@ -19,17 +18,13 @@
  * Invoked on master during user_save before syncing to subsites. Also invoked
  * on subsite when requesting account data from master for account creation.
  *
- * @param array $edit
- *   The array of form values submitted by the user from hook_user_presave().
- * @param object $account
+ * @param User $account
  *   User account object.
- * @param string $category
- *   The active category of user information being edited.
  *
  * @return array
  *   Keyed array of data to pass along to other sites.
  */
-function hook_bakery_transmit($edit, $account, $category) {
+function hook_bakery_transmit($account) {
   return array(
     'example_field' => 'example_value',
   );
@@ -43,7 +38,7 @@ function hook_bakery_transmit($edit, $account, $category) {
  *
  * Note, callers are responsible for data validation.
  *
- * @param object $account
+ * @param User $account
  *   User account object.
  * @param array $cookie
  *   Data sent from the master. Custom data sent by master's
