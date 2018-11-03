@@ -19,8 +19,8 @@ function bakery_menu() {
     'description' => 'Infrastructure-wide single-sign-on system options.',
   );
 
-  if ($config->get(is_master)) {
-    if ($config->get(subsite_login)) {
+  if ($config->get('is_master')) {
+    if ($config->get('subsite_login')) {
       $items['bakery'] = array(
         'title' => 'Register',
         'access callback' => 'user_is_anonymous',
